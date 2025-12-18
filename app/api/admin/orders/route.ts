@@ -82,9 +82,12 @@ export async function POST(request: Request) {
 
             // Refund Logic: If changing to CANCELLED and wasn't already CANCELLED
             if (finalStatus === 'CANCELLED' && currentOrder.status !== 'CANCELLED' && currentOrder.userId) {
-                // Fetch exact fee paid from key-value to ensure accuracy (bypass stale client)
-                const requestData: any[] = await tx.$queryRaw`SELECT fee FROM Request WHERE id = ${id}`;
-                const feePaid = (requestData && requestData.length > 0) ? Number(requestData[0].fee) : 0;
+                // Fetch exact fee paid from key-value to ensure accuracy
+                const requestData = await tx.request.findUnique({
+                    where: { id },
+                    select: { fee: true }
+                });
+                const feePaid = requestData?.fee || 0;
 
                 // Fallback to 20 ONLY if feePaid is 0 (supports legacy orders before dynamic fee)
                 const refundAmount = feePaid > 0 ? feePaid : 20;
@@ -133,8 +136,11 @@ export async function PATCH(request: Request) {
             // Refund Logic: If changing to CANCELLED and wasn't already CANCELLED
             if (status === 'CANCELLED' && currentOrder.status !== 'CANCELLED' && currentOrder.userId) {
                 // Fetch exact fee paid
-                const requestData: any[] = await tx.$queryRaw`SELECT fee FROM Request WHERE id = ${id}`;
-                const feePaid = (requestData && requestData.length > 0) ? Number(requestData[0].fee) : 0;
+                const requestData = await tx.request.findUnique({
+                    where: { id },
+                    select: { fee: true }
+                });
+                const feePaid = requestData?.fee || 0;
 
                 const refundAmount = feePaid > 0 ? feePaid : 20;
 

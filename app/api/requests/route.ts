@@ -24,9 +24,10 @@ export async function POST(request: Request) {
         const userId = session.user.id;
 
         // Fetch dynamic fee for "Server Copy Unofficial"
-        // Using raw query to ensure we get the latest fee even if client is stale
-        const services: any[] = await prisma.$queryRaw`SELECT fee FROM Service WHERE name = 'Server Copy Unofficial' LIMIT 1`;
-        const serviceFee = (services && services.length > 0) ? Number(services[0].fee) : 20; // Fallback to 20 only if service missing
+        const service = await prisma.service.findUnique({
+            where: { name: 'Server Copy Unofficial' }
+        });
+        const serviceFee = service?.fee || 20; // Fallback to 20 only if service missing
 
         // Start transaction
         const result = await prisma.$transaction(async (tx) => {
