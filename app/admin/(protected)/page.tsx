@@ -102,9 +102,9 @@ export default function AdminDashboard() {
             text: 'text-green-600'
         },
         {
-            title: 'DB Storage',
-            value: storageStats.totalSize,
-            desc: `Files: ${storageStats.fileUsage}`,
+            title: 'Cloud Storage',
+            value: storageStats.fileUsage,
+            desc: `DB Size: ${storageStats.totalSize}`,
             icon: Database,
             color: 'bg-purple-500',
             bg: 'bg-purple-50',
