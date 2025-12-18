@@ -81,23 +81,23 @@ export default function ServicesControlPage() {
 
     return (
         <div className="space-y-6">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-                <div className="flex items-center justify-between mb-8">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 md:p-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
                     <div>
-                        <h2 className="text-xl font-bold text-slate-800">Service Control Panel</h2>
-                        <p className="text-sm text-slate-500">Manage visibility and access to services</p>
+                        <h2 className="text-lg md:text-xl font-bold text-slate-800">Service Control Panel</h2>
+                        <p className="text-xs md:text-sm text-slate-500">Manage visibility and access to services</p>
                     </div>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-3 md:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                     {services.map((service, index) => (
-                        <div key={index} className={`relative flex flex-col justify-between p-0 rounded-2xl border-2 transition-all duration-300 hover:shadow-lg overflow-hidden group ${service.status === 'Active' ? 'border-green-100 bg-white' : 'border-slate-100 bg-slate-50/50'}`}>
+                        <div key={index} className={`relative flex flex-col justify-between rounded-xl border-2 transition-all duration-300 hover:shadow-lg overflow-hidden group ${service.status === 'Active' ? 'border-green-100 bg-white' : 'border-slate-100 bg-slate-50/50'}`}>
 
                             {/* Card Header & Status Toggle */}
-                            <div className="p-6 pb-4">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className={`p-3.5 rounded-xl transition-colors ${service.status === 'Active' ? 'bg-green-100 text-green-600' : 'bg-slate-200 text-slate-500'}`}>
-                                        <Server className="w-6 h-6" />
+                            <div className="p-4 md:p-5 pb-3">
+                                <div className="flex justify-between items-start mb-3">
+                                    <div className={`p-3 rounded-lg transition-colors ${service.status === 'Active' ? 'bg-green-100 text-green-600' : 'bg-slate-200 text-slate-500'}`}>
+                                        <Server className="w-5 h-5 md:w-6 md:h-6" />
                                     </div>
                                     <label className="relative inline-flex items-center cursor-pointer">
                                         <input
@@ -110,7 +110,7 @@ export default function ServicesControlPage() {
                                     </label>
                                 </div>
 
-                                <h3 className="font-bold text-slate-800 text-lg mb-1">{service.name}</h3>
+                                <h3 className="font-bold text-slate-800 text-base md:text-lg mb-1 leading-tight">{service.name}</h3>
 
                                 <div className="flex items-center gap-2 mt-2">
                                     <span className={`flex w-2.5 h-2.5 rounded-full ${service.status === 'Active' ? 'bg-green-500 shadow-sm shadow-green-300' : 'bg-slate-400'}`} />
@@ -121,14 +121,14 @@ export default function ServicesControlPage() {
                             </div>
 
                             {/* Service Fee Section */}
-                            <div className={`mt-2 p-4 border-t ${service.status === 'Active' ? 'bg-green-50/30 border-green-50' : 'bg-slate-100/50 border-slate-100'}`}>
+                            <div className={`mt-auto p-3 md:p-4 border-t ${service.status === 'Active' ? 'bg-green-50/30 border-green-50' : 'bg-slate-100/50 border-slate-100'}`}>
                                 <div className="flex items-center justify-between">
                                     <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Service Fee</span>
                                     <div className="flex items-center relative group/input">
                                         <span className="absolute left-3 text-slate-400 text-sm font-semibold group-focus-within/input:text-blue-500 transition-colors">৳</span>
                                         <input
                                             type="number"
-                                            className="w-24 pl-8 pr-3 py-1.5 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-lg text-right focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm"
+                                            className="w-24 pl-7 pr-3 py-1.5 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-lg text-right focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm"
                                             value={service.fee || 0}
                                             onChange={(e) => {
                                                 const val = parseFloat(e.target.value);
