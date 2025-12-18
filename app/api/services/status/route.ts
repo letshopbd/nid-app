@@ -9,13 +9,12 @@ export async function GET(request: Request) {
 
     try {
         if (name) {
-            // Raw SQL to ensure we get 'fee' even if Prisma Client is stale
-            const services = await prisma.$queryRaw`SELECT * FROM Service WHERE name = ${name} LIMIT 1`;
-            const service = Array.isArray(services) && services.length > 0 ? services[0] : null;
-
+            const service = await prisma.service.findUnique({
+                where: { name }
+            });
             return NextResponse.json(service || { status: 'Inactive', fee: 0 });
         } else {
-            const services = await prisma.$queryRaw`SELECT * FROM Service`;
+            const services = await prisma.service.findMany();
             return NextResponse.json(services);
         }
     } catch (error) {
@@ -38,54 +37,30 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Service name or ID required' }, { status: 400 });
         }
 
-
         let service;
 
         if (serviceId) {
-            // Update by ID
-            // We use ExecuteRawUnsafe to bypass Prisma Client validation for 'fee' if generic client is stale
-            await prisma.$executeRawUnsafe(
-                `UPDATE Service SET status = ?, fee = ? WHERE id = ?`,
-                status || 'Active',
-                fee !== undefined ? Number(fee) : 0,
-                serviceId
-            );
-
-            // Fetch the updated record to return it
-            service = await prisma.service.findUnique({ where: { id: serviceId } });
+            service = await prisma.service.update({
+                where: { id: serviceId },
+                data: {
+                    status: status || undefined,
+                    fee: fee !== undefined ? Number(fee) : undefined
+                }
+            });
         } else {
-            // Upsert by Name logic using Raw SQL to ensure fee is saved
-            // First try update
-            const result = await prisma.$executeRawUnsafe(
-                `UPDATE Service SET status = ?, fee = ? WHERE name = ?`,
-                status || 'Active',
-                fee !== undefined ? Number(fee) : 0,
-                name
-            );
-
-            // If no rows updated, Insert
-            // We need to check if result (number of changes) is 0. 
-            // result is usually number of rows.
-            // But types might vary. Safe assumption: if findUnique returns null, then insert.
-
-            service = await prisma.service.findUnique({ where: { name } });
-
-            if (service) {
-                // It was updated (or existed)
-            } else {
-                // Insert
-                const newId = crypto.randomUUID();
-                await prisma.$executeRawUnsafe(
-                    `INSERT INTO Service (id, name, status, fee, link, createdAt) VALUES (?, ?, ?, ?, ?, ?)`,
-                    newId,
+            service = await prisma.service.upsert({
+                where: { name: name },
+                update: {
+                    status: status || 'Active',
+                    fee: fee !== undefined ? Number(fee) : 0
+                },
+                create: {
                     name,
-                    status || 'Active',
-                    fee !== undefined ? Number(fee) : 0,
-                    '#',
-                    new Date()
-                );
-                service = await prisma.service.findUnique({ where: { id: newId } });
-            }
+                    status: status || 'Active',
+                    fee: fee !== undefined ? Number(fee) : 0,
+                    link: '#'
+                }
+            });
         }
         return NextResponse.json(service);
 
