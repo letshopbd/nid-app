@@ -48,22 +48,14 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
-        const removeFile = formData.get('removeFile') === 'true';
-
-        let pdfPath = undefined;
-        let finalStatus = status;
+        const pdfPathFromClient = formData.get('pdfPath') as string | null;
 
         if (removeFile) {
-            pdfPath = null; // Explicitly null to remove it in DB
-            finalStatus = 'PROCESSING'; // Revert to processing
-        } else if (file && file.size > 0) {
-
-            // Convert file to Base64 Data URI for database storage (Vercel Read-Only File System workaround)
-            const buffer = Buffer.from(await file.arrayBuffer());
-            const base64 = buffer.toString('base64');
-            const mimeType = file.type || 'application/pdf'; // Default to PDF if missing
-
-            pdfPath = `data:${mimeType};base64,${base64}`;
+            pdfPath = null;
+            finalStatus = 'PROCESSING';
+        } else if (pdfPathFromClient) {
+            pdfPath = pdfPathFromClient;
+            // No need to process binary, client gives us the UploadThing URL
         }
 
         // Auto-complete if file is attached (and not removing)

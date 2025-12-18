@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import SuccessModal from '@/app/components/SuccessModal';
 import ConfirmationModal from '@/app/components/ConfirmationModal';
+import { uploadFiles } from '@/app/utils/uploadthing';
 
 interface Order {
     id: string;
@@ -150,13 +151,21 @@ export default function OrdersPage() {
     };
 
     const handleFileUpload = async (id: string, currentStatus: string, file: File) => {
-        // Don't optimistic update for file upload as we need the path
-        const formData = new FormData();
-        formData.append('id', id);
-        formData.append('status', currentStatus);
-        formData.append('file', file);
-
         try {
+            // 1. Upload to UploadThing First
+            const utRes = await uploadFiles("pdfUploader", { files: [file] });
+            const uploadedUrl = utRes?.[0]?.url;
+
+            if (!uploadedUrl) {
+                throw new Error("UploadThing failed to return URL");
+            }
+
+            // 2. Save URL to Database
+            const formData = new FormData();
+            formData.append('id', id);
+            formData.append('status', currentStatus);
+            formData.append('pdfPath', uploadedUrl); // Send the URL, not the file
+
             const res = await fetch('/api/admin/orders', {
                 method: 'POST',
                 body: formData,
@@ -168,14 +177,14 @@ export default function OrdersPage() {
                 setSuccessModal({
                     isOpen: true,
                     title: 'Upload Successful!',
-                    message: 'The PDF file has been attached and the order is now Completed.'
+                    message: 'The PDF file has been uploaded to Cloud Storage and attached.'
                 });
             } else {
-                setSuccessModal({ isOpen: true, title: 'Upload Failed', message: 'Could not upload the file. Please try again.' });
+                setSuccessModal({ isOpen: true, title: 'Save Failed', message: 'File uploaded but could not be saved to order.' });
             }
         } catch (error) {
             console.error('Upload failed', error);
-            setSuccessModal({ isOpen: true, title: 'Error', message: 'An unexpected error occurred.' });
+            setSuccessModal({ isOpen: true, title: 'Upload Failed', message: 'Could not upload to cloud storage.' });
         }
     };
 
