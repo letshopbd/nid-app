@@ -13,8 +13,8 @@ import {
 interface MobileNavProps {
     type: 'user' | 'admin';
     userCounts?: {
-        pendingOrders: 0;
-        pendingRecharges: 0;
+        pendingOrders: number;
+        pendingRecharges: number;
     };
     user?: {
         name?: string | null;
