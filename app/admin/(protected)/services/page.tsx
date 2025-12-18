@@ -94,59 +94,62 @@ export default function ServicesControlPage() {
                         <div key={index} className={`relative flex flex-col justify-between rounded-xl border-2 transition-all duration-300 hover:shadow-lg overflow-hidden group ${service.status === 'Active' ? 'border-green-100 bg-white' : 'border-slate-100 bg-slate-50/50'}`}>
 
                             {/* Card Header & Status Toggle */}
-                            <div className="p-4 md:p-5 pb-3">
-                                <div className="flex justify-between items-start mb-3">
-                                    <div className={`p-3 rounded-lg transition-colors ${service.status === 'Active' ? 'bg-green-100 text-green-600' : 'bg-slate-200 text-slate-500'}`}>
-                                        <Server className="w-5 h-5 md:w-6 md:h-6" />
+                            <div className="p-4 md:p-5 flex flex-col gap-4">
+                                <div className="flex justify-between items-start">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`p-3 rounded-xl transition-colors ${service.status === 'Active' ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-500'}`}>
+                                            <Server className="w-6 h-6" />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-bold text-slate-800 text-base md:text-lg leading-tight">{service.name}</h3>
+                                            <span className={`inline-flex items-center gap-1.5 mt-1 px-2 py-0.5 rounded-md text-xs font-bold uppercase tracking-wider ${service.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                                                <span className={`w-1.5 h-1.5 rounded-full ${service.status === 'Active' ? 'bg-green-500' : 'bg-slate-400'}`} />
+                                                {service.status}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <label className="relative inline-flex items-center cursor-pointer">
+
+                                    {/* Large Touch-Friendly Toggle */}
+                                    <label className="relative inline-flex items-center cursor-pointer p-1 -mr-1">
                                         <input
                                             type="checkbox"
                                             className="sr-only peer"
                                             checked={service.status === 'Active'}
                                             onChange={() => toggleService(service)}
                                         />
-                                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-100/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                                        <div className="w-12 h-7 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-100/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[6px] after:left-[6px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500 hover:bg-slate-300 transition-colors"></div>
                                     </label>
                                 </div>
 
-                                <h3 className="font-bold text-slate-800 text-base md:text-lg mb-1 leading-tight">{service.name}</h3>
-
-                                <div className="flex items-center gap-2 mt-2">
-                                    <span className={`flex w-2.5 h-2.5 rounded-full ${service.status === 'Active' ? 'bg-green-500 shadow-sm shadow-green-300' : 'bg-slate-400'}`} />
-                                    <span className={`text-xs font-bold uppercase tracking-wider ${service.status === 'Active' ? 'text-green-600' : 'text-slate-500'}`}>
-                                        {service.status}
-                                    </span>
-                                </div>
-                            </div>
-
-                            {/* Service Fee Section */}
-                            <div className={`mt-auto p-3 md:p-4 border-t ${service.status === 'Active' ? 'bg-green-50/30 border-green-50' : 'bg-slate-100/50 border-slate-100'}`}>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Service Fee</span>
-                                    <div className="flex items-center relative group/input">
-                                        <span className="absolute left-3 text-slate-400 text-sm font-semibold group-focus-within/input:text-blue-500 transition-colors">৳</span>
-                                        <input
-                                            type="number"
-                                            className="w-24 pl-7 pr-3 py-1.5 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-lg text-right focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm"
-                                            value={service.fee || 0}
-                                            onChange={(e) => {
-                                                const val = parseFloat(e.target.value);
-                                                setServices(services.map(s => s.name === service.name ? { ...s, fee: val } : s));
-                                            }}
-                                            onBlur={async (e) => {
-                                                const newFee = parseFloat(e.target.value);
-                                                try {
-                                                    await fetch('/api/services/status', {
-                                                        method: 'POST',
-                                                        headers: { 'Content-Type': 'application/json' },
-                                                        body: JSON.stringify({ name: service.name, fee: newFee }),
-                                                    });
-                                                } catch (err) {
-                                                    console.error('Failed to update fee');
-                                                }
-                                            }}
-                                        />
+                                {/* Service Fee Input - Large & Accessible */}
+                                <div className={`pt-4 border-t ${service.status === 'Active' ? 'border-green-50' : 'border-slate-100'}`}>
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-sm font-bold text-slate-500 uppercase tracking-wide">Service Fee</label>
+                                        <div className="flex items-center relative w-1/2 max-w-[140px]">
+                                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm pointer-events-none">৳</div>
+                                            <input
+                                                type="number"
+                                                className="w-full pl-8 pr-4 py-2 text-base font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg text-right focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all focus:bg-white"
+                                                placeholder="0"
+                                                value={service.fee || 0}
+                                                onChange={(e) => {
+                                                    const val = parseFloat(e.target.value);
+                                                    setServices(services.map(s => s.name === service.name ? { ...s, fee: val } : s));
+                                                }}
+                                                onBlur={async (e) => {
+                                                    const newFee = parseFloat(e.target.value);
+                                                    try {
+                                                        await fetch('/api/services/status', {
+                                                            method: 'POST',
+                                                            headers: { 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({ name: service.name, fee: newFee }),
+                                                        });
+                                                    } catch (err) {
+                                                        console.error('Failed to update fee');
+                                                    }
+                                                }}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             </div>
