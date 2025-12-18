@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/app/lib/prisma';
 import { getAdminSession } from '@/app/admin/auth/session';
-import { writeFile, mkdir } from 'fs/promises';
-import path from 'path';
+
 
 // GET: Fetch all orders (requests) with user details
 export async function GET() {
@@ -58,17 +57,13 @@ export async function POST(request: Request) {
             pdfPath = null; // Explicitly null to remove it in DB
             finalStatus = 'PROCESSING'; // Revert to processing
         } else if (file && file.size > 0) {
+
+            // Convert file to Base64 Data URI for database storage (Vercel Read-Only File System workaround)
             const buffer = Buffer.from(await file.arrayBuffer());
-            const filename = `order-${id}-${Date.now()}.pdf`;
+            const base64 = buffer.toString('base64');
+            const mimeType = file.type || 'application/pdf'; // Default to PDF if missing
 
-            // Ensure uploads directory exists
-            const uploadDir = path.join(process.cwd(), 'public/uploads/files');
-            await mkdir(uploadDir, { recursive: true });
-
-            const filePath = path.join(uploadDir, filename);
-            await writeFile(filePath, buffer);
-
-            pdfPath = `/uploads/files/${filename}`;
+            pdfPath = `data:${mimeType};base64,${base64}`;
         }
 
         // Auto-complete if file is attached (and not removing)
