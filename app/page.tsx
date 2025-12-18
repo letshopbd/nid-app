@@ -1,0 +1,37 @@
+import Link from 'next/link';
+import { ArrowRight, ShieldCheck } from 'lucide-react';
+
+export default function LandingPage() {
+  return (
+    <div className="min-h-[calc(100vh-80px)] flex flex-col items-center justify-center p-4 text-center space-y-8">
+      <div className="w-20 h-20 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-2xl shadow-blue-500/30 mb-4 transform rotate-3 hover:rotate-0 transition duration-500">
+        <ShieldCheck className="w-10 h-10" />
+      </div>
+
+      <div className="space-y-4 max-w-2xl">
+        <h1 className="text-5xl font-extrabold text-slate-800 tracking-tight leading-tight">
+          Smart Service <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Point</span>
+        </h1>
+        <p className="text-slate-500 text-lg">
+          Your one-stop verified platform for NID Services, Birth Registration, and more.
+          Secure, fast, and trusted by 1000+ users.
+        </p>
+      </div>
+
+      <div className="flex gap-4">
+        <Link
+          href="/login"
+          className="px-8 py-4 bg-slate-800 text-white rounded-xl font-bold shadow-lg hover:bg-slate-900 transition flex items-center gap-2"
+        >
+          Login to Dashboard <ArrowRight className="w-4 h-4" />
+        </Link>
+        <Link
+          href="/register"
+          className="px-8 py-4 bg-white text-slate-700 border border-slate-200 rounded-xl font-bold shadow-sm hover:bg-slate-50 transition"
+        >
+          Create Account
+        </Link>
+      </div>
+    </div>
+  );
+}
