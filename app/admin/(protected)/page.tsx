@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Users, FileText, TrendingUp, ArrowRight, Server, Shield, XCircle } from 'lucide-react';
+import { Users, FileText, TrendingUp, ArrowRight, Server, Shield, XCircle, Database } from 'lucide-react';
 import Link from 'next/link';
 
 export default function AdminDashboard() {
@@ -13,13 +13,19 @@ export default function AdminDashboard() {
     });
     const [loading, setLoading] = useState(true);
 
+    const [storageStats, setStorageStats] = useState({
+        totalSize: '0 MB',
+        fileUsage: '0 MB'
+    });
+
     useEffect(() => {
         const fetchStats = async (showLoading = true) => {
             if (showLoading) setLoading(true);
             try {
-                const [usersRes, ordersRes] = await Promise.all([
+                const [usersRes, ordersRes, storageRes] = await Promise.all([
                     fetch(`/api/admin/users?t=${Date.now()}`),
-                    fetch(`/api/admin/orders?t=${Date.now()}`)
+                    fetch(`/api/admin/orders?t=${Date.now()}`),
+                    fetch(`/api/admin/stats/storage?t=${Date.now()}`)
                 ]);
 
                 if (usersRes.ok && ordersRes.ok) {
@@ -39,6 +45,14 @@ export default function AdminDashboard() {
                         pendingOrders,
                         cancelledOrders,
                         totalRevenue
+                    });
+                }
+
+                if (storageRes.ok) {
+                    const storageData = await storageRes.json();
+                    setStorageStats({
+                        totalSize: storageData.totalSize,
+                        fileUsage: storageData.fileUsage
                     });
                 }
             } catch (error) {
@@ -86,6 +100,15 @@ export default function AdminDashboard() {
             color: 'bg-green-500',
             bg: 'bg-green-50',
             text: 'text-green-600'
+        },
+        {
+            title: 'DB Storage',
+            value: storageStats.totalSize,
+            desc: `Files: ${storageStats.fileUsage}`,
+            icon: Database,
+            color: 'bg-purple-500',
+            bg: 'bg-purple-50',
+            text: 'text-purple-600'
         }
     ];
 
@@ -122,23 +145,24 @@ export default function AdminDashboard() {
             </div>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
                 {cards.map((card, index) => (
                     <div key={index} className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between mb-4">
                             <div className={`${card.bg} p-3 rounded-lg`}>
                                 <card.icon className={`w-6 h-6 ${card.text}`} />
                             </div>
-                            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                                {index === 1 ? 'BDT' : 'Count'}
-                            </span>
                         </div>
                         <div>
                             <h3 className="text-slate-500 text-sm font-medium mb-1">{card.title}</h3>
                             {loading ? (
                                 <div className="h-8 w-24 bg-slate-100 rounded animate-pulse"></div>
                             ) : (
-                                <p className="text-2xl font-bold text-slate-800">{card.value}</p>
+                                <div>
+                                    <p className="text-2xl font-bold text-slate-800">{card.value}</p>
+                                    {/* @ts-ignore */}
+                                    {card.desc && <p className="text-xs text-slate-400 font-medium mt-1">{card.desc}</p>}
+                                </div>
                             )}
                         </div>
                     </div>
