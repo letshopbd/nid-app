@@ -41,7 +41,7 @@ function PaymentContent() {
         navigator.clipboard.writeText(adminNumber);
         setMsgModal({
             isOpen: true,
-            isOpen: true,
+
             title: 'Copied',
             msg: 'Number copied to clipboard.',
             type: 'success'
@@ -73,7 +73,7 @@ function PaymentContent() {
             if (res.ok) {
                 setMsgModal({
                     isOpen: true,
-                    isOpen: true,
+
                     title: 'Success!',
                     msg: 'Your recharge request has been submitted successfully. Please wait.',
                     type: 'success'
@@ -82,7 +82,7 @@ function PaymentContent() {
                 const data = await res.json();
                 setMsgModal({
                     isOpen: true,
-                    isOpen: true,
+
                     title: 'Failed!',
                     msg: data.error || 'Request could not be submitted.',
                     type: 'error'
@@ -92,7 +92,7 @@ function PaymentContent() {
             console.error(error);
             setMsgModal({
                 isOpen: true,
-                isOpen: true,
+
                 title: 'Error',
                 msg: 'Server error.',
                 type: 'error'
