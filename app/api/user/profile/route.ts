@@ -21,6 +21,7 @@ export async function GET() {
                 username: true,
                 balance: true,
                 createdAt: true,
+                avatarSalt: true,
             }
         });
 
@@ -37,7 +38,7 @@ export async function PATCH(request: Request) {
         if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
         const body = await request.json();
-        const { name, phone, address, bio, gender, currentPassword, newPassword } = body;
+        const { name, phone, address, bio, gender, currentPassword, newPassword, avatarSalt } = body;
 
         // Password Update Logic
         if (currentPassword && newPassword) {
@@ -66,7 +67,8 @@ export async function PATCH(request: Request) {
                 phone,
                 address,
                 bio,
-                gender
+                gender,
+                avatarSalt
             }
         });
 

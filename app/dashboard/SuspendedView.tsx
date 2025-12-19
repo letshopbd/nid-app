@@ -15,13 +15,13 @@ export default function SuspendedView({ whatsappNumber = '+8801700000000' }: Sus
                     <Lock className="w-10 h-10" />
                 </div>
 
-                <h1 className="text-2xl font-bold text-slate-800 mb-2">Service Unavailable</h1>
-                <h2 className="text-lg font-bold text-orange-600 mb-6">Account Suspended</h2>
+                <h1 className="text-2xl font-bold text-slate-800 mb-2">সার্ভিসটি বর্তমানে বন্ধ আছে</h1>
+                <h2 className="text-lg font-bold text-orange-600 mb-6">অ্যাকাউন্ট স্থগিত করা হয়েছে</h2>
 
                 <p className="text-slate-500 mb-8 leading-relaxed">
-                    This service is currently under maintenance or has been temporarily disabled by the administration.
+                    এই সার্ভিসটি বর্তমানে মেইনটেনেন্স বা প্রশাসনিক কারণে সাময়িকভাবে বন্ধ আছে।
                     <br />
-                    Please check back later or contact support.
+                    অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন অথবা সাপোর্টে যোগাযোগ করুন।
                 </p>
 
                 <Link
@@ -29,7 +29,7 @@ export default function SuspendedView({ whatsappNumber = '+8801700000000' }: Sus
                     target="_blank"
                     className="block w-full py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition transform hover:scale-[1.02] shadow-lg shadow-slate-900/20"
                 >
-                    Contact Support
+                    সাপোর্টে যোগাযোগ করুন
                 </Link>
             </div>
         </div>

@@ -21,7 +21,9 @@ export default function ServerCopyPage() {
         message: ''
     });
 
-    const [serviceFee, setServiceFee] = useState(20.0);
+    // Initialize to 0 to avoid flashing wrong price
+    const [serviceFee, setServiceFee] = useState(0);
+    const [feeLoading, setFeeLoading] = useState(true);
     const router = useRouter();
 
     useEffect(() => {
@@ -34,6 +36,8 @@ export default function ServerCopyPage() {
                 }
             } catch (err) {
                 console.error('Failed to fetch fee');
+            } finally {
+                setFeeLoading(false);
             }
         };
         fetchFee();
@@ -85,7 +89,7 @@ export default function ServerCopyPage() {
         } else {
             // Deleting logic: Standard format but don't force trailing hyphen
             if (val.length > 6) {
-                formatted = `${val.slice(0, 4)}-${val.slice(4, 6)}-${val.slice(6)}`;
+                formatted = `${val.slice(0, 4)}-${val.slice(4, 6)}-${val.slice(6, 10)}`;
             } else if (val.length > 4) {
                 formatted = `${val.slice(0, 4)}-${val.slice(4)}`;
             }
@@ -97,7 +101,7 @@ export default function ServerCopyPage() {
     const showError = (message: string) => {
         setErrorModal({
             isOpen: true,
-            title: 'দুঃখিত!', // "Sorry!"
+            title: 'Sorry!', // "Sorry!"
             message: message
         });
     };
@@ -108,14 +112,14 @@ export default function ServerCopyPage() {
 
         // --- 1. NID Validation (10 or 17 Digits) ---
         if (nid.length !== 10 && nid.length !== 17) {
-            showError('এনআইডি নম্বর অবশ্যই ১০ অথবা ১৭ সংখ্যার হতে হবে।');
+            showError('NID number must be 10 or 17 digits.');
             setLoading(false);
             return;
         }
 
         // --- 2. DOB Validation (Format) ---
         if (dob.length !== 10) {
-            showError('জন্ম তারিখ সঠিক নয়। ফরম্যাট হতে হবে: YYYY-MM-DD');
+            showError('Invalid date of birth. Format must be: YYYY-MM-DD');
             setLoading(false);
             return;
         }
@@ -136,11 +140,11 @@ export default function ServerCopyPage() {
                 }
             } else {
                 const data = await res.json();
-                showError(data.error || 'অনুরোধটি সম্পন্ন করা সম্ভব হয়নি। দয়া করে আবার চেষ্টা করুন।');
+                showError(data.error || 'Request could not be processed. Please try again.');
             }
         } catch (err) {
             console.error(err);
-            showError('কিছু একটা সমস্যা হয়েছে। দয়া করে আবার চেষ্টা করুন।');
+            showError('Something went wrong. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -157,8 +161,8 @@ export default function ServerCopyPage() {
                 <SuccessModal
                     isOpen={showSuccessModal}
                     onClose={handleModalClose}
-                    title="সফলভাবে সম্পন্ন হয়েছে!"
-                    message="আপনার অনুরোধটি সফলভাবে গ্রহণ করা হয়েছে।"
+                    title="Successfully Completed!"
+                    message="Your request has been accepted successfully."
                     serviceFee={`${serviceFee.toFixed(2)} ৳`}
                 />
 
@@ -177,8 +181,8 @@ export default function ServerCopyPage() {
                         <ArrowLeft className="w-5 h-5" />
                     </Link>
                     <div>
-                        <h1 className="text-xl font-bold text-slate-800">সার্ভার কপি (আনঅফিসিয়াল)</h1>
-                        <p className="text-sm text-slate-500">এনআইডি এবং জন্ম তারিখ দিয়ে সার্ভার কপি তৈরি করুন</p>
+                        <h1 className="text-xl font-bold text-slate-800">Server Copy (Unofficial)</h1>
+                        <p className="text-sm text-slate-500">Generate Server Copy using NID and Date of Birth</p>
                     </div>
                 </div>
 
@@ -186,8 +190,8 @@ export default function ServerCopyPage() {
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                     {/* Purple Header */}
                     <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-6 text-white">
-                        <h2 className="text-xl font-bold mb-1">তথ্য অনুসন্ধান</h2>
-                        <p className="text-sm opacity-90">এনআইডি এবং জন্ম তারিখ দিয়ে তথ্য খুঁজুন</p>
+                        <h2 className="text-xl font-bold mb-1">Information Search</h2>
+                        <p className="text-sm opacity-90">Search information using NID and Date of Birth</p>
                     </div>
 
                     {/* Form Content */}
@@ -197,22 +201,22 @@ export default function ServerCopyPage() {
                             {/* NID Input */}
                             <div className="space-y-2">
                                 <label className="text-sm font-semibold text-slate-700">
-                                    এনআইডি নম্বর *
+                                    NID Number *
                                 </label>
                                 <input
                                     type="number"
                                     value={nid}
                                     onChange={(e) => setNid(e.target.value)}
-                                    placeholder="এনআইডি নম্বর লিখুন"
+                                    placeholder="Enter NID Number"
                                     className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all font-medium"
                                 />
-                                <p className="text-xs text-slate-400">অবশ্যই ১০ অথবা ১৭ সংখ্যার হতে হবে।</p>
+                                <p className="text-xs text-slate-400">Must be 10 or 17 digits.</p>
                             </div>
 
                             {/* DOB Input */}
                             <div className="space-y-2">
                                 <label className="text-sm font-semibold text-slate-700">
-                                    জন্ম তারিখ *
+                                    Date of Birth *
                                 </label>
                                 <div className="relative">
                                     <input
@@ -226,7 +230,7 @@ export default function ServerCopyPage() {
                                     />
                                     <Calendar className="absolute right-4 top-3.5 text-slate-400 w-5 h-5 pointer-events-none" />
                                 </div>
-                                <p className="text-xs text-slate-400">Format: YYYY-MM-DD (e.g. 1999-01-01)</p>
+                                <p className="text-xs text-slate-400">Format: YYYY-MM-DD (e.g., 1999-01-01)</p>
                             </div>
 
                             {/* Fee Info */}
@@ -236,11 +240,17 @@ export default function ServerCopyPage() {
                                         <Download className="w-5 h-5" />
                                     </div>
                                     <div>
-                                        <p className="text-sm font-bold text-slate-700">সার্ভিস ফি</p>
-                                        <p className="text-xs text-slate-500">ওয়ালেট থেকে কেটে নেওয়া হবে</p>
+                                        <p className="text-sm font-bold text-slate-700">Service Fee</p>
+                                        <p className="text-xs text-slate-500">Will be deducted from wallet</p>
                                     </div>
                                 </div>
-                                <p className="text-lg font-bold text-purple-700">{serviceFee.toFixed(2)} ৳</p>
+                                <p className="text-lg font-bold text-purple-700">
+                                    {feeLoading ? (
+                                        <span className="animate-pulse">...</span>
+                                    ) : (
+                                        `${serviceFee.toFixed(2)} ৳`
+                                    )}
+                                </p>
                             </div>
 
                             {/* Submit Button */}
@@ -249,7 +259,7 @@ export default function ServerCopyPage() {
                                 disabled={loading}
                                 className="w-full py-4 bg-[#00c988] hover:bg-[#00b57a] text-white font-bold rounded-xl transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-green-500/20 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                             >
-                                {loading ? 'Processing...' : 'সাবমিট করুন'}
+                                {loading ? 'Processing...' : 'Submit'}
                             </button>
 
                         </form>

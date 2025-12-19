@@ -9,12 +9,11 @@ export default function LandingPage() {
       </div>
 
       <div className="space-y-4 max-w-2xl">
-        <h1 className="text-5xl font-extrabold text-slate-800 tracking-tight leading-tight">
-          Smart Service <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Point</span>
+        <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
+          <span className="text-blue-600">Smart Service Point</span>
         </h1>
-        <p className="text-slate-500 text-lg">
-          Your one-stop verified platform for NID Services, Birth Registration, and more.
-          Secure, fast, and trusted by 1000+ users.
+        <p className="text-lg md:text-xl text-slate-600 mb-8 max-w-2xl mx-auto leading-relaxed">
+          Your trusted platform for NID services, birth registration, and more. Secure, fast, and trusted by 1000+ users.
         </p>
       </div>
 
@@ -23,7 +22,7 @@ export default function LandingPage() {
           href="/login"
           className="px-8 py-4 bg-slate-800 text-white rounded-xl font-bold shadow-lg hover:bg-slate-900 transition flex items-center gap-2"
         >
-          Login to Dashboard <ArrowRight className="w-4 h-4" />
+          Enter Dashboard <ArrowRight className="w-4 h-4" />
         </Link>
         <Link
           href="/register"

@@ -21,15 +21,32 @@ export default function RechargePage() {
     const [customAmount, setCustomAmount] = useState('');
     const [history, setHistory] = useState<RechargeRequest[]>([]);
     const [loading, setLoading] = useState(true);
+    const [minRecharge, setMinRecharge] = useState(100);
     const [msgModal, setMsgModal] = useState<{ isOpen: boolean; title: string; msg: string; type: 'success' | 'error' | 'info' }>({ isOpen: false, title: '', msg: '', type: 'info' });
+
+    useEffect(() => {
+        // Fetch Min Recharge Setting
+        const fetchSettings = () => {
+            fetch('/api/settings/payment')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.minRecharge) setMinRecharge(Number(data.minRecharge));
+                })
+                .catch(err => console.error('Failed to fetch settings', err));
+        };
+
+        fetchSettings();
+        const interval = setInterval(fetchSettings, 5000); // Check every 5 seconds
+        return () => clearInterval(interval);
+    }, []);
 
     const handleRecharge = (amount: string) => {
         const val = amount.replace(/,/g, '');
-        if (Number(val) < 100) {
+        if (Number(val) < minRecharge) {
             setMsgModal({
                 isOpen: true,
-                title: 'সতর্কতা',
-                msg: 'সর্বনিম্ন রিচার্জ পরিমাণ ১০০ টাকা।',
+                title: 'Warning',
+                msg: `Minimum recharge amount is ${minRecharge} Taka.`,
                 type: 'error'
             });
             return;
@@ -68,13 +85,13 @@ export default function RechargePage() {
                 type={msgModal.type}
             />
 
-            <h1 className="text-2xl font-bold text-slate-900">রিচার্জ হিস্টোরি</h1>
+            <h1 className="text-2xl font-bold text-slate-900">Recharge History</h1>
 
             {/* Cards Section */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Custom Recharge */}
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6 flex flex-col h-full">
-                    <h2 className="text-lg font-bold text-slate-800">কাস্টম রিচার্জ</h2>
+                    <h2 className="text-lg font-bold text-slate-800">Custom Recharge</h2>
                     <div className="flex-1 flex flex-col justify-center space-y-6">
                         <div className="relative">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">৳</span>
@@ -82,7 +99,7 @@ export default function RechargePage() {
                                 type="number"
                                 value={customAmount}
                                 onChange={(e) => setCustomAmount(e.target.value)}
-                                placeholder="পরিমাণ লিখুন (ন্যূনতম ১০০ টাকা)"
+                                placeholder={`Enter amount (Minimum ${minRecharge} Taka)`}
                                 className="w-full pl-10 pr-4 py-3 rounded-lg border border-slate-300 focus:outline-none focus:border-pink-500 focus:ring-1 focus:ring-pink-500 text-sm"
                             />
                         </div>
@@ -91,14 +108,14 @@ export default function RechargePage() {
                             className="w-full py-3 bg-[#e91e63] text-white font-bold rounded-lg hover:bg-[#d81b60] transition shadow-md flex items-center justify-center gap-2"
                         >
                             <Send className="w-5 h-5 -rotate-45" />
-                            রিচার্জ করুন
+                            Recharge
                         </button>
                     </div>
                 </div>
 
                 {/* Packages */}
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
-                    <h2 className="text-lg font-bold text-slate-800">প্রিডিফাইন্ড রিচার্জ প্যাকেজ</h2>
+                    <h2 className="text-lg font-bold text-slate-800">Predefined Recharge Packages</h2>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <PackageCard amount="1,000" bonus="30" onClick={() => handleRecharge('1000')} />
                         <PackageCard amount="2,000" bonus="50" onClick={() => handleRecharge('2000')} />
@@ -110,7 +127,7 @@ export default function RechargePage() {
             {/* History Table */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="p-6 border-b border-slate-100">
-                    <h2 className="text-lg font-bold text-slate-800">লেনদেন ইতিহাস</h2>
+                    <h2 className="text-lg font-bold text-slate-800">Transaction History</h2>
                 </div>
                 <div className="overflow-x-auto hidden md:block">
                     <table className="w-full text-left">
@@ -200,10 +217,10 @@ function PackageCard({ amount, bonus, onClick }: { amount: string, bonus: string
         <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col items-center justify-center gap-3 text-center hover:shadow-md transition">
             <div>
                 <div className="text-xl font-bold text-slate-900">৳ {amount}</div>
-                <div className="text-xs font-bold text-green-600">+ ৳ {bonus} বোনাস</div>
+                <div className="text-xs font-bold text-green-600">+ ৳ {bonus} Bonus</div>
             </div>
             <button onClick={onClick} className="w-full py-2 bg-[#e91e63] text-white text-sm font-bold rounded-md hover:bg-[#d81b60] transition">
-                রিচার্জ
+                Recharge
             </button>
         </div>
     );

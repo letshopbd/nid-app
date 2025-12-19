@@ -41,15 +41,16 @@ function PaymentContent() {
         navigator.clipboard.writeText(adminNumber);
         setMsgModal({
             isOpen: true,
-            title: 'কপি হয়েছে',
-            msg: 'নাম্বারটি ক্লিপবোর্ডে কপি করা হয়েছে।',
+            isOpen: true,
+            title: 'Copied',
+            msg: 'Number copied to clipboard.',
             type: 'success'
         });
     };
 
     const handleSuccessClose = () => {
         setMsgModal(m => ({ ...m, isOpen: false }));
-        if (msgModal.type === 'success' && msgModal.title === 'সফল!') {
+        if (msgModal.type === 'success' && msgModal.title === 'Success!') {
             router.push('/dashboard/recharge');
         }
     };
@@ -72,16 +73,18 @@ function PaymentContent() {
             if (res.ok) {
                 setMsgModal({
                     isOpen: true,
-                    title: 'সফল!',
-                    msg: 'আপনার রিচার্জ অনুরোধ সফলভাবে জমা দেওয়া হয়েছে। অনুগ্রহ করে অপেক্ষা করুন।',
+                    isOpen: true,
+                    title: 'Success!',
+                    msg: 'Your recharge request has been submitted successfully. Please wait.',
                     type: 'success'
                 });
             } else {
                 const data = await res.json();
                 setMsgModal({
                     isOpen: true,
-                    title: 'ব্যর্থ!',
-                    msg: data.error || 'অনুরোধ জমা দেওয়া সম্ভব হয়নি।',
+                    isOpen: true,
+                    title: 'Failed!',
+                    msg: data.error || 'Request could not be submitted.',
                     type: 'error'
                 });
             }
@@ -89,8 +92,9 @@ function PaymentContent() {
             console.error(error);
             setMsgModal({
                 isOpen: true,
-                title: 'ত্রুটি',
-                msg: 'সার্ভারে সমস্যা হয়েছে।',
+                isOpen: true,
+                title: 'Error',
+                msg: 'Server error.',
                 type: 'error'
             });
         } finally {
@@ -115,13 +119,13 @@ function PaymentContent() {
                 <Link href="/dashboard/recharge" className="p-2 hover:bg-slate-100 rounded-full transition text-slate-500">
                     <ArrowLeft className="w-5 h-5" />
                 </Link>
-                <h1 className="text-xl font-bold text-slate-800">পেমেন্ট সম্পন্ন করুন</h1>
+                <h1 className="text-xl font-bold text-slate-800">Complete Payment</h1>
             </div>
 
             {/* Instruction Card */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
                 <div className="text-center space-y-2">
-                    <p className="text-slate-500 text-sm">পরিমাণ</p>
+                    <p className="text-slate-500 text-sm">Amount</p>
                     <p className="text-3xl font-bold text-slate-800">৳ {amount}</p>
                 </div>
 
@@ -141,11 +145,11 @@ function PaymentContent() {
                 </div>
 
                 <div className="text-sm text-slate-500 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                    <p className="font-bold mb-1">নির্দেশনা:</p>
+                    <p className="font-bold mb-1">Instructions:</p>
                     <ul className="list-disc pl-5 space-y-1">
-                        <li>উপরের নাম্বারে <strong>Send Money</strong> করুন।</li>
-                        <li>টাকার পরিমাণ <strong>{amount}</strong> টাকা হতে হবে।</li>
-                        <li>পেমেন্ট সম্পন্ন হলে নিচের ফর্মে <strong>Transaction ID</strong> দিন।</li>
+                        <li>Send Money to the above number.</li>
+                        <li>Amount must be <strong>{amount}</strong> Taka.</li>
+                        <li>Enter Transaction ID in the form below after payment.</li>
                     </ul>
                 </div>
             </div>
@@ -165,7 +169,7 @@ function PaymentContent() {
                 </div>
 
                 <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-700">যে নাম্বার থেকে পাঠিয়েছেন (ঐচ্ছিক)</label>
+                    <label className="text-sm font-semibold text-slate-700">Sender Number (Optional)</label>
                     <input
                         type="text"
                         value={paymentNumber}
@@ -180,7 +184,7 @@ function PaymentContent() {
                     disabled={loading || !trxID}
                     className="w-full py-4 bg-[#e91e63] hover:bg-[#d81b60] text-white font-bold rounded-xl transition shadow-lg shadow-pink-500/20 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                    {loading ? 'যাচাই করা হচ্ছে...' : 'পেমেন্ট ভেরিফাই করুন'}
+                    {loading ? 'Verifying...' : 'Verify Payment'}
                 </button>
             </form>
         </div>

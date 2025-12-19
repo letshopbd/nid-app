@@ -53,11 +53,11 @@ export default function MobileNav({ type, userCounts = { pendingOrders: 0, pendi
     const userMenuItems = [
         { name: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
         { name: 'Order Now', icon: ShoppingCart, href: '/dashboard/order' },
-        { name: 'Sign Copy to NID', icon: FileText, href: '/dashboard/services/sign-copy' },
-        { name: 'Make Birth Reg', icon: FileClock, href: '#' },
-        { name: 'Server Copy Unofficial', icon: Upload, href: '/dashboard/services/nid' },
+        { name: 'Sign Copy NID', icon: FileText, href: '/dashboard/services/sign-copy' },
+        { name: 'Birth Registration', icon: FileClock, href: '#' },
+        { name: 'Server Copy (Unofficial)', icon: Upload, href: '/dashboard/services/nid' },
         { name: 'Sign to Server Copy', icon: FileText, href: '/dashboard/services/sign-to-server' },
-        { name: 'Tin Certificate', icon: Calculator, href: '/dashboard/services/tin-certificate' },
+        { name: 'TIN Certificate', icon: Calculator, href: '/dashboard/services/tin-certificate' },
         { name: 'My File List', icon: FileText, href: '/dashboard/my-files' },
         { name: 'Recharge', icon: CreditCard, href: '/dashboard/recharge' },
         { name: 'Profile', icon: User, href: '/dashboard/profile' },
@@ -119,9 +119,9 @@ export default function MobileNav({ type, userCounts = { pendingOrders: 0, pendi
                             <Smartphone className="w-5 h-5 text-white/80" />
                         </div>
                         <div>
-                            <p className="text-xs text-white/60 font-medium">Hello,</p>
+                            <p className="text-xs text-white/60 font-medium">Welcome,</p>
                             <p className="text-sm font-bold truncate max-w-[180px]">
-                                {type === 'user' ? (user?.name || 'User Panel') : 'Administrator'}
+                                {type === 'user' ? (user?.name || 'User') : 'Administrator'}
                             </p>
                         </div>
                     </div>
@@ -160,12 +160,12 @@ export default function MobileNav({ type, userCounts = { pendingOrders: 0, pendi
                     {type === 'user' ? (
                         <Link href="/signout" className="flex items-center justify-center gap-2 px-4 py-3 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl transition font-bold text-sm w-full">
                             <LogOut className="w-4 h-4" />
-                            Sign Out
+                            Log Out
                         </Link>
                     ) : (
                         <Link href="/admin/logout" className="flex items-center justify-center gap-2 px-4 py-3 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl transition font-bold text-sm w-full">
                             <LogOut className="w-4 h-4" />
-                            Sign Out
+                            Log Out
                         </Link>
                     )}
                 </div>

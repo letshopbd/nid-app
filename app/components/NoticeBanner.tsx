@@ -30,7 +30,7 @@ export default function NoticeBanner() {
         };
 
         fetchNotices();
-        const interval = setInterval(fetchNotices, 30000);
+        const interval = setInterval(fetchNotices, 5000); // Poll every 5 seconds for "live" updates
         return () => clearInterval(interval);
     }, []);
 
@@ -72,8 +72,8 @@ export default function NoticeBanner() {
                     <div
                         key={idx}
                         className={`absolute inset-0 flex items-center justify-center transition-all duration-500 ease-in-out ${idx === currentIndex
-                                ? 'opacity-100 translate-y-0'
-                                : 'opacity-0 translate-y-4 pointer-events-none'
+                            ? 'opacity-100 translate-y-0'
+                            : 'opacity-0 translate-y-4 pointer-events-none'
                             }`}
                     >
                         <span className={`text-amber-800 font-medium px-2 ${config.size}`}>

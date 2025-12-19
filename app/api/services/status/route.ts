@@ -31,6 +31,30 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json();
+
+        // BULK UPDATE Logic
+        if (Array.isArray(body)) {
+            const updates = body.map((service: any) =>
+                prisma.service.upsert({
+                    where: { name: service.name },
+                    update: {
+                        status: service.status || 'Active',
+                        fee: Number(service.fee || 0),
+                    },
+                    create: {
+                        name: service.name,
+                        status: service.status || 'Active',
+                        fee: Number(service.fee || 0),
+                        link: service.link || '#'
+                    }
+                })
+            );
+
+            const results = await prisma.$transaction(updates);
+            return NextResponse.json(results);
+        }
+
+        // Single Update Logic (Legacy)
         const { id: serviceId, name, status, fee } = body;
 
         if (!name && !serviceId) {

@@ -11,8 +11,8 @@ export default function SignCopyToNidPage() {
             <div className="space-y-6">
                 {/* Header */}
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">নতুন এনআইডি</h1>
-                    <p className="text-sm text-slate-500">নতুন এনআইডি তৈরি করুন এবং প্রয়োজনীয় তথ্য পূরণ করুন</p>
+                    <h1 className="text-2xl font-bold text-slate-900">New NID</h1>
+                    <p className="text-sm text-slate-500">Create new NID and fill in required information</p>
                 </div>
 
                 {/* Main Form Card */}
@@ -22,8 +22,8 @@ export default function SignCopyToNidPage() {
                         <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm text-blue-500 mb-3 group-hover:scale-110 transition">
                             <FileText className="w-6 h-6" />
                         </div>
-                        <h3 className="text-lg font-bold text-slate-800">সাইন কপি</h3>
-                        <p className="text-sm text-slate-500">এখানে ক্লিক করে লোড করুন (PDF only)</p>
+                        <h3 className="text-lg font-bold text-slate-800">Sign Copy</h3>
+                        <p className="text-sm text-slate-500">Click here to upload (PDF only)</p>
                     </div>
 
                     {/* Photo & Signature Row */}
@@ -31,7 +31,7 @@ export default function SignCopyToNidPage() {
                         {/* NID Photo */}
                         <div className="border border-slate-300 rounded-lg overflow-hidden">
                             <div className="h-48 bg-slate-50 flex items-center justify-center border-b border-slate-300 relative">
-                                <span className="absolute top-2 left-2 text-xs font-semibold text-red-500">এনআইডি ছবি *</span>
+                                <span className="absolute top-2 left-2 text-xs font-semibold text-red-500">NID Photo *</span>
                                 <User className="w-16 h-16 text-slate-300" />
                             </div>
                             <div className="p-3 bg-white flex items-center justify-between">
@@ -45,7 +45,7 @@ export default function SignCopyToNidPage() {
                         {/* Signature */}
                         <div className="border border-slate-300 rounded-lg overflow-hidden">
                             <div className="h-48 bg-slate-50 flex items-center justify-center border-b border-slate-300 relative">
-                                <span className="absolute top-2 left-2 text-xs font-semibold text-slate-600">স্বাক্ষর</span>
+                                <span className="absolute top-2 left-2 text-xs font-semibold text-slate-600">Signature</span>
                                 <FileSignature className="w-16 h-16 text-slate-300" />
                             </div>
                             <div className="p-3 bg-white flex items-center justify-between">
@@ -59,23 +59,23 @@ export default function SignCopyToNidPage() {
 
                     {/* Form Fields Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <InputField label="নাম (বাংলা) *" placeholder="সম্পূর্ণ নাম বাংলায়" />
-                        <InputField label="নাম (ইংরেজী) *" placeholder="সম্পূর্ণ নাম ইংরেজীতে" />
+                        <InputField label="Name (Bangla) *" placeholder="Full Name in Bangla" />
+                        <InputField label="Name (English) *" placeholder="Full Name in English" />
 
-                        <InputField label="এন.আই.ডি নম্বর *" placeholder="এনআইডি নাম্বার" />
-                        <InputField label="পিন নম্বর *" placeholder="পিন নাম্বার" />
+                        <InputField label="NID Number *" placeholder="NID Number" />
+                        <InputField label="PIN Number *" placeholder="PIN Number" />
 
-                        <InputField label="পিতার নাম *" placeholder="পিতার নাম বাংলায়" />
-                        <InputField label="মাতার নাম *" placeholder="মাতার নাম বাংলায়" />
+                        <InputField label="Father's Name *" placeholder="Father's Name in Bangla" />
+                        <InputField label="Mother's Name *" placeholder="Mother's Name in Bangla" />
 
-                        <InputField label="জন্মস্থান *" placeholder="জন্মস্থান (অধার)" />
+                        <InputField label="Place of Birth *" placeholder="Place of Birth (District)" />
                         <div className="space-y-2">
-                            <label className="text-sm font-semibold text-slate-700">জন্ম তারিখ *</label>
+                            <label className="text-sm font-semibold text-slate-700">Date of Birth *</label>
                             <input type="date" className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-sm" />
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-sm font-semibold text-slate-700">রক্তের গ্রুপ</label>
+                            <label className="text-sm font-semibold text-slate-700">Blood Group</label>
                             <select className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-sm bg-white">
                                 <option>Select Blood Group</option>
                                 <option>A+</option>
@@ -85,17 +85,17 @@ export default function SignCopyToNidPage() {
                             </select>
                         </div>
                         <div className="space-y-2">
-                            <label className="text-sm font-semibold text-slate-700">প্রদানের তারিখ *</label>
+                            <label className="text-sm font-semibold text-slate-700">Date of Issue *</label>
                             <input type="date" defaultValue="2025-12-15" className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-sm" />
                         </div>
                     </div>
 
                     {/* Address Field */}
                     <div className="space-y-2">
-                        <label className="text-sm font-semibold text-slate-700">ঠিকানা *</label>
+                        <label className="text-sm font-semibold text-slate-700">Address *</label>
                         <textarea
                             rows={3}
-                            placeholder="বাসা/হোল্ডিং: (Holding), গ্রাম/রোড: (গ্রাম, পোস্ট), ডাকঘর: (Post Office-Postal Code), উপজেলা, সিটি কর্পোরেশন/পৌরসভা, জেলা"
+                            placeholder="House/Holding: (Holding), Village/Road: (Village, Road), Post Office: (Post Office-Postal Code), Upazila, City Corporation/Municipality, District"
                             className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 text-sm resize-none"
                         ></textarea>
                     </div>
@@ -103,7 +103,7 @@ export default function SignCopyToNidPage() {
 
                 {/* Submit Button */}
                 <button className="w-full py-4 bg-[#00c988] text-white font-bold rounded-lg hover:bg-[#00b57a] transition shadow-md">
-                    এন.আই.ডি তৈরি ও ডাউনলোড করুন
+                    Create & Download NID
                 </button>
             </div>
         </ServiceGuard>

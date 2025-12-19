@@ -35,38 +35,10 @@ export default function ProfilePage() {
     const [passData, setPassData] = useState({ current: '', new: '' });
     const [msgModal, setMsgModal] = useState<{ isOpen: boolean; title: string; msg: string; type: 'success' | 'error' | 'info' }>({ isOpen: false, title: '', msg: '', type: 'info' });
 
-    // Robust Avatar Logic
-    // Using v7 which is very stable.
-    const gender = userData.gender?.toLowerCase() || 'male';
-    const isFemale = gender === 'female' || gender === 'woman';
+    const avatarSeed = (userData.username || userData.email || 'user') + avatarSalt;
 
-    // Explicit hair styles arrays
-    const femaleHair = ['longHair', 'longHairBigHair', 'longHairBob', 'longHairBun', 'longHairCurly', 'longHairCurvy', 'longHairDreads', 'longHairFrida', 'longHairFro', 'longHairFroBand', 'longHairNotTooLong', 'longHairMiaWallace', 'longHairShavedSides', 'longHairStraight', 'longHairStraight2', 'longHairStraightStrand'];
-    const maleHair = ['shortHair', 'shortHairDreads01', 'shortHairDreads02', 'shortHairFrizzle', 'shortHairShaggyMullet', 'shortHairShortCurly', 'shortHairShortFlat', 'shortHairShortRound', 'shortHairShortWaved', 'shortHairSides', 'shortHairTheCaesar', 'shortHairTheCaesarSidePart'];
-
-    // Facial hair arrays
-    const maleFacialHair = ['beardLight', 'beardMajestic', 'beardMedium', 'moustacheFancy', 'moustacheMagnum', 'stubbie', 'default']; // default might be none? Dicebear uses 'env' usually, but let's stick to explicit or blank.
-
-    // Deterministic helper
-    const getTrait = (arr: string[], seedString: string) => {
-        let hash = 0;
-        for (let i = 0; i < seedString.length; i++) {
-            hash = seedString.charCodeAt(i) + ((hash << 5) - hash);
-        }
-        const index = Math.abs(hash) % arr.length;
-        return arr[index];
-    };
-
-    const avatarSeed = (userData.email || 'default') + avatarSalt;
-
-    // Select traits based on gender
-    const selectedTop = isFemale ? getTrait(femaleHair, avatarSeed) : getTrait(maleHair, avatarSeed);
-    const selectedFacialHair = isFemale ? 'none' : getTrait(maleFacialHair, avatarSeed);
-
-    // Clean Look Parameters
-    const cleanParams = '&skinColor=f5d0b0,f1c27d,ffdbb4,edb98a&accessoriesProbability=0&clothing=shirtCrewNeck,shirtScoopNeck,shirtVNeck,collarAndSweater,graphicShirt,hoodie,overall&eyes=default,happy&mouth=default,smile&eyebrows=default,defaultNatural';
-
-    const avatarUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${avatarSeed}&backgroundColor=b6e3f4,c0aede,d1d4f9&top=${selectedTop}&facialHair=${selectedFacialHair}${cleanParams}`;
+    // DiceBear Avataaars - Fun, vector-style, matches user preference
+    const avatarUrl = `https://api.dicebear.com/9.x/avataaars/svg?seed=${avatarSeed}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffdfbf,ffd5dc`;
 
 
     useEffect(() => {
@@ -87,6 +59,7 @@ export default function ProfilePage() {
                     gender: data.gender || 'male',
                     username: data.username || ''
                 });
+                setAvatarSalt(data.avatarSalt || 0);
             }
         } catch (error) {
             console.error('Failed to load profile');
@@ -106,19 +79,20 @@ export default function ProfilePage() {
                     phone: userData.phone,
                     address: userData.address,
                     bio: userData.bio,
-                    gender: userData.gender
+                    gender: userData.gender,
+                    avatarSalt: avatarSalt
                 }),
             });
 
             if (res.ok) {
                 setEditMode(false);
-                setMsgModal({ isOpen: true, title: 'সফল!', msg: 'প্রোফাইল তথ্য আপডেট করা হয়েছে।', type: 'success' });
+                setMsgModal({ isOpen: true, title: 'Success!', msg: 'Profile information updated.', type: 'success' });
                 window.dispatchEvent(new Event('balanceUpdate'));
             } else {
-                setMsgModal({ isOpen: true, title: 'ব্যর্থ!', msg: 'আপডেট ব্যর্থ হয়েছে।', type: 'error' });
+                setMsgModal({ isOpen: true, title: 'Failed!', msg: 'Update failed.', type: 'error' });
             }
         } catch (error) {
-            setMsgModal({ isOpen: true, title: 'ত্রুটি', msg: 'সার্ভার সমস্যা।', type: 'error' });
+            setMsgModal({ isOpen: true, title: 'Error', msg: 'Server error.', type: 'error' });
         } finally {
             setSaving(false);
         }
@@ -126,7 +100,7 @@ export default function ProfilePage() {
 
     const handlePasswordUpdate = async () => {
         if (!passData.current || !passData.new) {
-            setMsgModal({ isOpen: true, title: 'ত্রুটি', msg: 'সব ফিল্ড পূরণ করুন।', type: 'error' });
+            setMsgModal({ isOpen: true, title: 'Error', msg: 'Fill all fields.', type: 'error' });
             return;
         }
 
@@ -144,12 +118,12 @@ export default function ProfilePage() {
 
             if (res.ok) {
                 setPassData({ current: '', new: '' });
-                setMsgModal({ isOpen: true, title: 'সফল!', msg: data.message, type: 'success' });
+                setMsgModal({ isOpen: true, title: 'Success!', msg: data.message, type: 'success' });
             } else {
-                setMsgModal({ isOpen: true, title: 'ব্যর্থ!', msg: data.error, type: 'error' });
+                setMsgModal({ isOpen: true, title: 'Failed!', msg: data.error, type: 'error' });
             }
         } catch (error) {
-            setMsgModal({ isOpen: true, title: 'ত্রুটি', msg: 'সার্ভার সমস্যা।', type: 'error' });
+            setMsgModal({ isOpen: true, title: 'Error', msg: 'Server error.', type: 'error' });
         }
     };
 
@@ -168,15 +142,15 @@ export default function ProfilePage() {
             {/* Page Title */}
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-800">ব্যবহারকারীর বিবরণ</h1>
-                    <p className="text-sm text-slate-500">আপনার প্রোফাইল তথ্য এবং সেটিংস</p>
+                    <h1 className="text-2xl font-bold text-slate-800">User Details</h1>
+                    <p className="text-sm text-slate-500">Your profile information and settings</p>
                 </div>
                 {!editMode ? (
                     <button
                         onClick={() => setEditMode(true)}
                         className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition"
                     >
-                        <Edit2 className="w-4 h-4" /> এডিট প্রোফাইল
+                        <Edit2 className="w-4 h-4" /> Edit Profile
                     </button>
                 ) : (
                     <div className="flex gap-2">
@@ -184,14 +158,14 @@ export default function ProfilePage() {
                             onClick={() => setEditMode(false)}
                             className="flex items-center gap-2 px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-bold hover:bg-slate-300 transition"
                         >
-                            <X className="w-4 h-4" /> বাতিল
+                            <X className="w-4 h-4" /> Cancel
                         </button>
                         <button
                             onClick={handleSave}
                             disabled={saving}
                             className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition"
                         >
-                            {saving ? 'সংরক্ষণ হচ্ছে...' : <><Save className="w-4 h-4" /> সংরক্ষণ করুন</>}
+                            {saving ? 'Saving...' : <><Save className="w-4 h-4" /> Save</>}
                         </button>
                     </div>
                 )}
@@ -216,13 +190,16 @@ export default function ProfilePage() {
                         )}
                     </div>
                     {/* Refresh Button */}
-                    <button
-                        onClick={() => setAvatarSalt(s => s + 1)}
-                        className="absolute bottom-0 right-0 z-20 p-2 bg-white rounded-full shadow-md text-slate-500 hover:text-blue-600 transition border border-slate-100"
-                        title="Change Avatar Look"
-                    >
-                        <RefreshCcw className="w-4 h-4" />
-                    </button>
+                    {/* Refresh Button - Only visible in edit mode */}
+                    {editMode && (
+                        <button
+                            onClick={() => setAvatarSalt(s => s + 1)}
+                            className="absolute bottom-0 right-0 z-20 p-2 bg-white rounded-full shadow-md text-slate-500 hover:text-blue-600 transition border border-slate-100"
+                            title="Change Avatar Look"
+                        >
+                            <RefreshCcw className="w-4 h-4" />
+                        </button>
+                    )}
                 </div>
 
                 <div className="relative z-10">
@@ -231,10 +208,10 @@ export default function ProfilePage() {
 
                     <div className="flex flex-wrap gap-2 justify-center">
                         <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full border border-green-200">
-                            সক্রিয় অ্যাকাউন্ট
+                            Active Account
                         </span>
                         <span className="px-3 py-1 bg-blue-50 text-blue-600 text-xs font-bold rounded-full border border-blue-100">
-                            ব্যালেন্স : ৳ {userData.balance?.toFixed(2)}
+                            Balance : ৳ {userData.balance?.toFixed(2)}
                         </span>
                     </div>
                 </div>
@@ -245,33 +222,33 @@ export default function ProfilePage() {
 
                 {/* Personal Info */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 h-full">
-                    <h2 className="font-bold text-slate-800 mb-6 text-lg border-b pb-2">ব্যক্তিগত তথ্য</h2>
+                    <h2 className="font-bold text-slate-800 mb-6 text-lg border-b pb-2">Personal Information</h2>
                     <div className="space-y-4">
                         <InfoInput
-                            label="নাম"
+                            label="Name"
                             value={userData.name}
                             isEditing={editMode}
                             onChange={(val) => setUserData({ ...userData, name: val })}
                             icon={User}
                         />
                         <InfoInput
-                            label="ইউজারনেম"
+                            label="Username"
                             value={userData.username}
                             isEditing={false} // Username cannot be changed
                             icon={Lock}
                             disabled={true}
                         />
                         <div className="space-y-1">
-                            <label className="text-xs font-semibold text-slate-400 block ml-1">লিঙ্গ</label>
+                            <label className="text-xs font-semibold text-slate-400 block ml-1">Gender</label>
                             {editMode ? (
                                 <select
                                     value={userData.gender}
                                     onChange={(e) => setUserData({ ...userData, gender: e.target.value })}
                                     className="w-full px-4 py-3 rounded-xl border border-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-blue-50/30"
                                 >
-                                    <option value="male">পুরুষ</option>
-                                    <option value="female">মহিলা</option>
-                                    <option value="other">অন্যান্য</option>
+                                    <option value="male">Male</option>
+                                    <option value="female">Female</option>
+                                    <option value="other">Other</option>
                                 </select>
                             ) : (
                                 <div className="p-4 rounded-xl border border-slate-100 flex items-center gap-4 bg-slate-50/50">
@@ -289,10 +266,10 @@ export default function ProfilePage() {
 
                 {/* Contact Info */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 h-full">
-                    <h2 className="font-bold text-slate-800 mb-6 text-lg border-b pb-2">যোগাযোগের তথ্য</h2>
+                    <h2 className="font-bold text-slate-800 mb-6 text-lg border-b pb-2">Contact Information</h2>
                     <div className="space-y-4">
                         <InfoInput
-                            label="ফোন নম্বর"
+                            label="Phone Number"
                             value={userData.phone}
                             isEditing={editMode}
                             onChange={(val) => setUserData({ ...userData, phone: val })}
@@ -300,32 +277,32 @@ export default function ProfilePage() {
                             placeholder="017xxxxxxxx"
                         />
                         <InfoInput
-                            label="ঠিকানা"
+                            label="Address"
                             value={userData.address}
                             isEditing={editMode}
                             onChange={(val) => setUserData({ ...userData, address: val })}
                             icon={MapPin}
                             isTextArea={true}
-                            placeholder="আপনার ঠিকানা লিখুন..."
+                            placeholder="Enter your address..."
                         />
                         <InfoInput
-                            label="বায়ো / সম্পর্কে"
+                            label="Bio / About"
                             value={userData.bio}
                             isEditing={editMode}
                             onChange={(val) => setUserData({ ...userData, bio: val })}
                             icon={Edit2}
                             isTextArea={true}
-                            placeholder="নিজের সম্পর্কে কিছু লিখুন..."
+                            placeholder="Write something about yourself..."
                         />
                     </div>
                 </div>
 
                 {/* Password Update */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:col-span-2">
-                    <h2 className="font-bold text-slate-800 mb-6 text-lg border-b pb-2">পাসওয়ার্ড পরিবর্তন</h2>
+                    <h2 className="font-bold text-slate-800 mb-6 text-lg border-b pb-2">Change Password</h2>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                         <div className="space-y-1">
-                            <label className="text-xs font-semibold text-slate-500 ml-1">বর্তমান পাসওয়ার্ড</label>
+                            <label className="text-xs font-semibold text-slate-500 ml-1">Current Password</label>
                             <input
                                 type="password"
                                 value={passData.current}
@@ -335,7 +312,7 @@ export default function ProfilePage() {
                             />
                         </div>
                         <div className="space-y-1">
-                            <label className="text-xs font-semibold text-slate-500 ml-1">নতুন পাসওয়ার্ড</label>
+                            <label className="text-xs font-semibold text-slate-500 ml-1">New Password</label>
                             <input
                                 type="password"
                                 value={passData.new}
@@ -348,7 +325,7 @@ export default function ProfilePage() {
                             onClick={handlePasswordUpdate}
                             className="py-3 px-6 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-700 transition shadow-lg shadow-slate-200 h-[46px]"
                         >
-                            আপডেট করুন
+                            Update
                         </button>
                     </div>
                 </div>

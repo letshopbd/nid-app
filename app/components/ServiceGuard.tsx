@@ -50,6 +50,16 @@ export default function ServiceGuard({ serviceName, children }: ServiceGuardProp
     }
 
     if (!isActive) {
+        // Mapping for Bengali Service Names
+        const englishNamesMap: Record<string, string> = {
+            'Sign Copy to NID': 'Sign Copy to NID',
+            'Make Birth Reg': 'Birth Registration',
+            'Server Copy Unofficial': 'Server Copy (Unofficial)',
+            'Sign to Server Copy': 'Sign to Server Copy',
+            'Tin Certificate': 'Tin Certificate'
+        };
+        const displayName = englishNamesMap[serviceName] || serviceName;
+
         return (
             <div className="relative min-h-screen overflow-hidden">
                 {/* Blurred Content */}
@@ -70,13 +80,13 @@ export default function ServiceGuard({ serviceName, children }: ServiceGuardProp
                             <Lock className="w-10 h-10" />
                         </div>
 
-                        <h2 className="text-2xl font-bold text-slate-800 mb-2">Service Unavailable</h2>
-                        <h3 className="text-lg font-medium text-amber-600 mb-4">{serviceName}</h3>
+                        <h2 className="text-2xl font-bold text-slate-800 mb-2">Service Currently Unavailable</h2>
+                        <h3 className="text-lg font-medium text-amber-600 mb-4">{displayName}</h3>
 
                         <p className="text-slate-600 mb-8 leading-relaxed">
-                            This service is currently under maintenance or has been temporarily disabled by the administration.
+                            This service is currently unavailable due to maintenance or administrative reasons.
                             <br />
-                            <span className="text-sm text-slate-400 mt-2 block">Please check back later.</span>
+                            <span className="text-sm text-slate-400 mt-2 block">Please try again later.</span>
                         </p>
 
                         <button

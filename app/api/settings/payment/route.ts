@@ -13,13 +13,15 @@ export async function GET() {
 
         const settings = await prisma.systemSetting.findMany({
             where: {
-                key: { in: ['payment_number', 'payment_methods', 'site_notices', 'notice_speed', 'notice_size', 'notice_gap'] }
+                key: { in: ['support_whatsapp', 'payment_number', 'min_recharge', 'payment_methods', 'site_notices', 'notice_speed', 'notice_size', 'notice_gap'] }
             }
         });
 
         const getValue = (key: string) => settings.find(s => s.key === key)?.value || '';
 
+        const whatsapp = getValue('support_whatsapp');
         const paymentNumber = getValue('payment_number') || '017XXXXXXXX'; // Default
+        const minRecharge = getValue('min_recharge');
         const paymentMethodsRaw = getValue('payment_methods');
         const siteNoticesRaw = getValue('site_notices');
 
@@ -46,7 +48,9 @@ export async function GET() {
         }
 
         return NextResponse.json({
+            whatsapp,
             paymentNumber,
+            minRecharge,
             paymentMethods,
             siteNotices,
             noticeConfig: {

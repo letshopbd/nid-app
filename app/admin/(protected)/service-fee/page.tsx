@@ -74,67 +74,68 @@ export default function ServiceFeePage() {
         }
     };
 
-    const handleUpdate = async (service: Service) => {
-        console.log('Updating service:', service);
-        try {
-            const payload = {
-                id: service.id, // Include ID for direct update
-                name: service.name,
-                fee: Number(service.fee),
-                status: service.status
-            };
-            console.log('Payload:', payload);
+    const [isSaving, setIsSaving] = useState(false);
 
+    const handleBulkSave = async () => {
+        setIsSaving(true);
+        try {
             const res = await fetch('/api/services/status', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
+                body: JSON.stringify(services),
             });
 
             if (res.ok) {
-                const updated = await res.json();
-                console.log('Update success:', updated);
-                setServices(prev => prev.map(s => s.name === updated.name ? updated : s));
                 setSuccessModal({
                     isOpen: true,
-                    message: `Service fee for "${service.name}" updated successfully.`
+                    message: `All services updated successfully.`
                 });
+                await fetchServices(); // Refresh to get official IDs/Status
             } else {
-                const err = await res.json();
-                console.error('Update failed:', err);
-                alert(`Failed to update: ${err.error || 'Unknown error'}`);
+                alert('Failed to save changes.');
             }
         } catch (error) {
-            console.error('Failed to update fee', error);
-            alert('Something went wrong during update.');
+            console.error('Failed to save', error);
+            alert('Error saving changes.');
+        } finally {
+            setIsSaving(false);
         }
     };
 
     return (
         <div className="space-y-6">
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-                <div className="flex items-center justify-between mb-8">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
                         <h2 className="text-xl font-bold text-slate-800">Service Control</h2>
                         <p className="text-sm text-slate-500">Set service fees and update usage credits</p>
                     </div>
-                    <button
-                        onClick={fetchServices}
-                        className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition"
-                        title="Refresh"
-                    >
-                        <RotateCcw className="w-5 h-5" />
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={handleBulkSave}
+                            disabled={isSaving}
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition disabled:opacity-50"
+                        >
+                            {isSaving ? 'Saving...' : <><Save className="w-4 h-4" /> Save Changes</>}
+                        </button>
+                        <button
+                            onClick={fetchServices}
+                            className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition"
+                            title="Refresh"
+                        >
+                            <RotateCcw className="w-5 h-5" />
+                        </button>
+                    </div>
                 </div>
 
-                <div className="overflow-x-auto">
+                {/* Desktop View - Table */}
+                <div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="border-b border-slate-100 text-slate-500 text-sm">
                                 <th className="pb-3 font-semibold pl-4">Service Name</th>
                                 <th className="pb-3 font-semibold text-center">Status</th>
                                 <th className="pb-3 font-semibold">Service Fee (৳)</th>
-                                <th className="pb-3 font-semibold text-right pr-4">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
@@ -173,18 +174,56 @@ export default function ServiceFeePage() {
                                             />
                                         </div>
                                     </td>
-                                    <td className="py-4 pr-4 text-right">
-                                        <button
-                                            onClick={() => handleUpdate(service)}
-                                            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 active:scale-95 transition-all shadow-sm shadow-blue-200"
-                                        >
-                                            <Save className="w-4 h-4" /> Update
-                                        </button>
-                                    </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
+                </div>
+
+                {/* Mobile View - Cards */}
+                <div className="grid grid-cols-1 gap-4 md:hidden">
+                    {services.map((service, index) => (
+                        <div key={index} className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                            {/* Header */}
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-white text-blue-600 rounded-lg border border-slate-100 shadow-sm">
+                                        <Server className="w-5 h-5" />
+                                    </div>
+                                    <span className="font-bold text-slate-700">{service.name}</span>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        className="sr-only peer"
+                                        checked={service.status === 'Active'}
+                                        onChange={() => handleStatusToggle(service.id, service.status)}
+                                    />
+                                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                </label>
+                            </div>
+
+                            {/* Body */}
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-400 mb-1 uppercase">Service Fee (BDT)</label>
+                                    <div className="relative">
+                                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">৳</span>
+                                        <input
+                                            type="number"
+                                            className="w-full pl-9 pr-4 py-3 border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition font-bold text-lg text-slate-800 bg-white"
+                                            value={service.fee || 0}
+                                            onChange={(e) => {
+                                                const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                                                setServices(services.map(s => s.name === service.name ? { ...s, fee: isNaN(val) ? 0 : val } : s));
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    ))}
                 </div>
             </div>
 
@@ -194,6 +233,6 @@ export default function ServiceFeePage() {
                 title="Success"
                 message={successModal.message}
             />
-        </div>
+        </div >
     );
 }

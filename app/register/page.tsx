@@ -3,18 +3,26 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Lock, Mail, User } from 'lucide-react';
+import { Lock, Mail, User, Eye, EyeOff } from 'lucide-react';
 
 export default function RegisterPage() {
     const router = useRouter();
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [acceptedTerms, setAcceptedTerms] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (!acceptedTerms) {
+            setError('You must accept the Terms and Conditions');
+            return;
+        }
+
         setLoading(true);
         setError('');
 
@@ -81,14 +89,38 @@ export default function RegisterPage() {
                         <div className="relative">
                             <Lock className="absolute left-3 top-3.5 w-4 h-4 text-slate-400" />
                             <input
-                                type="password"
+                                type={showPassword ? "text" : "password"}
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition"
+                                className="w-full pl-10 pr-12 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition"
                                 placeholder="••••••••"
                                 required
                             />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-3 top-3.5 text-slate-400 hover:text-slate-600 focus:outline-none"
+                            >
+                                {showPassword ? (
+                                    <EyeOff className="w-4 h-4" />
+                                ) : (
+                                    <Eye className="w-4 h-4" />
+                                )}
+                            </button>
                         </div>
+                    </div>
+
+                    <div className="flex items-start gap-2">
+                        <input
+                            type="checkbox"
+                            id="terms"
+                            className="mt-1 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            checked={acceptedTerms}
+                            onChange={(e) => setAcceptedTerms(e.target.checked)}
+                        />
+                        <label htmlFor="terms" className="text-sm text-slate-600">
+                            I agree to the <Link href="/terms" className="text-blue-600 font-bold hover:underline" target="_blank">Terms and Conditions</Link>
+                        </label>
                     </div>
 
                     {error && (
@@ -99,17 +131,17 @@ export default function RegisterPage() {
 
                     <button
                         type="submit"
-                        disabled={loading}
-                        className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg transition disabled:opacity-70"
+                        disabled={loading || !acceptedTerms}
+                        className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg transition disabled:opacity-70 disabled:cursor-not-allowed"
                     >
-                        {loading ? 'Creating Account...' : 'Register'}
+                        {loading ? 'Creating account...' : 'Register'}
                     </button>
                 </form>
 
                 <div className="text-center text-sm text-slate-500">
                     Already have an account?{' '}
                     <Link href="/login" className="text-blue-600 font-bold hover:underline">
-                        Sign In
+                        Log In
                     </Link>
                 </div>
             </div>

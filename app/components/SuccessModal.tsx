@@ -15,7 +15,7 @@ interface SuccessModalProps {
 export default function SuccessModal({
     isOpen,
     onClose,
-    title = 'সফল!',
+    title = 'Success!',
     message,
     serviceFee
 }: SuccessModalProps) {
@@ -95,7 +95,7 @@ export default function SuccessModal({
                                     {message}
                                     {serviceFee && (
                                         <span className="block mt-2 font-medium text-emerald-600 bg-emerald-50 py-1 px-3 rounded-full text-sm inline-block">
-                                            ফি কেটে নেওয়া হয়েছে: {serviceFee}
+                                            Fee deducted: {serviceFee}
                                         </span>
                                     )}
                                 </motion.p>
@@ -107,7 +107,7 @@ export default function SuccessModal({
                                     onClick={onClose}
                                     className="w-full py-3.5 bg-slate-900 text-white rounded-xl font-bold shadow-lg hover:bg-slate-800 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
                                 >
-                                    ঠিক আছে
+                                    Okay
                                 </motion.button>
                             </div>
 

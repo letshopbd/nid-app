@@ -13,11 +13,11 @@ export default function Sidebar() {
     const menuItems = [
         { name: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
         { name: 'Order Now', icon: ShoppingCart, href: '/dashboard/order' },
-        { name: 'Sign Copy to NID', icon: FileText, href: '/dashboard/services/sign-copy' },
-        { name: 'Make Birth Reg', icon: FileClock, href: '#' },
-        { name: 'Server Copy Unofficial', icon: Upload, href: '/dashboard/services/nid' },
+        { name: 'Sign Copy NID', icon: FileText, href: '/dashboard/services/sign-copy' },
+        { name: 'Birth Registration', icon: FileClock, href: '#' },
+        { name: 'Server Copy (Unofficial)', icon: Upload, href: '/dashboard/services/nid' },
         { name: 'Sign to Server Copy', icon: FileText, href: '/dashboard/services/sign-to-server' },
-        { name: 'Tin Certificate', icon: Calculator, href: '/dashboard/services/tin-certificate' },
+        { name: 'TIN Certificate', icon: Calculator, href: '/dashboard/services/tin-certificate' },
         { name: 'My File List', icon: FileText, href: '/dashboard/my-files' },
         { name: 'Recharge', icon: CreditCard, href: '/dashboard/recharge' },
         { name: 'Profile', icon: User, href: '/dashboard/profile' },
@@ -40,7 +40,7 @@ export default function Sidebar() {
                     const isActive = pathname === item.href;
                     return (
                         <Link
-                            key={item.name}
+                            key={item.href} // Changed key to href as name is not unique or safe
                             href={item.href}
                             className={`flex items-center gap-3 px-4 py-2.5 transition-all text-sm font-medium
                                 ${isActive
@@ -58,7 +58,7 @@ export default function Sidebar() {
             <div className="p-4 border-t border-slate-300">
                 <Link href="/signout" className="flex items-center gap-3 text-red-600 hover:text-red-700 transition font-medium text-sm">
                     <LogOut className="w-5 h-5" />
-                    Sign Out
+                    Log Out
                 </Link>
             </div>
         </aside>

@@ -4,17 +4,26 @@ import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Lock, Mail } from 'lucide-react';
+import { Lock, Mail, Eye, EyeOff } from 'lucide-react';
 
-export default function LoginPage() {
+export default function LoginForm() {
     const router = useRouter();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [acceptedTerms, setAcceptedTerms] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
     const handleSubmit = async (e: React.FormEvent) => {
+        // ... (existing submit logic)
         e.preventDefault();
+
+        if (!acceptedTerms) {
+            setError('You must accept the Terms and Conditions');
+            return;
+        }
+
         setLoading(true);
         setError('');
 
@@ -41,8 +50,8 @@ export default function LoginPage() {
         <div className="min-h-[calc(100vh-80px)] flex items-center justify-center p-4">
             <div className="max-w-md w-full glass bg-white/90 rounded-2xl shadow-xl p-8 space-y-6">
                 <div className="text-center">
-                    <h1 className="text-2xl font-bold text-slate-800">Welcome Back</h1>
-                    <p className="text-slate-500 text-sm">Sign in to your dashboard</p>
+                    <h1 className="text-2xl font-bold text-slate-800">Welcome</h1>
+                    <p className="text-slate-500 text-sm">Enter your dashboard</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -66,14 +75,38 @@ export default function LoginPage() {
                         <div className="relative">
                             <Lock className="absolute left-3 top-3.5 w-4 h-4 text-slate-400" />
                             <input
-                                type="password"
+                                type={showPassword ? "text" : "password"}
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition"
+                                className="w-full pl-10 pr-12 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition"
                                 placeholder="••••••••"
                                 required
                             />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-3 top-3.5 text-slate-400 hover:text-slate-600 focus:outline-none"
+                            >
+                                {showPassword ? (
+                                    <EyeOff className="w-4 h-4" />
+                                ) : (
+                                    <Eye className="w-4 h-4" />
+                                )}
+                            </button>
                         </div>
+                    </div>
+
+                    <div className="flex items-start gap-2">
+                        <input
+                            type="checkbox"
+                            id="terms-login"
+                            className="mt-1 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            checked={acceptedTerms}
+                            onChange={(e) => setAcceptedTerms(e.target.checked)}
+                        />
+                        <label htmlFor="terms-login" className="text-sm text-slate-600">
+                            I agree to the <Link href="/terms" className="text-blue-600 font-bold hover:underline" target="_blank">Terms and Conditions</Link>
+                        </label>
                     </div>
 
                     {error && (
@@ -84,15 +117,15 @@ export default function LoginPage() {
 
                     <button
                         type="submit"
-                        disabled={loading}
-                        className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg transition disabled:opacity-70"
+                        disabled={loading || !acceptedTerms}
+                        className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg transition disabled:opacity-70 disabled:cursor-not-allowed"
                     >
-                        {loading ? 'Signing in...' : 'Sign In'}
+                        {loading ? 'Logging in...' : 'Log In'}
                     </button>
                 </form>
 
                 <div className="text-center text-sm text-slate-500">
-                    Don&apos;t have an account?{' '}
+                    Don't have an account?{' '}
                     <Link href="/register" className="text-blue-600 font-bold hover:underline">
                         Register
                     </Link>
