@@ -8,7 +8,7 @@ export async function GET() {
     try {
         const session = await auth();
         // Strict Admin Check
-        if (!session || session.user?.role !== 'ADMIN') {
+        if (!session || (session.user as any)?.role !== 'ADMIN') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
