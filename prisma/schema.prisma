@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String            @id @default(uuid())
+  name      String?
+  username  String?           @unique
+  email     String            @unique
+  password  String
+  balance   Float             @default(0.0)
+  role      String            @default("USER")
+  status    String            @default("ACTIVE")
+  createdAt DateTime          @default(now())
+  address   String?
+  bio       String?
+  gender    String?           @default("male")
+  avatarSalt Int               @default(0)
+  phone     String?
+  recharges RechargeRequest[]
+  requests  Request[]
+
+  @@index([status]) // For efficiently filtering Active/Suspended users
+}
+
+model Request {
+  id            String   @id @default(uuid())
+  nid           String
+  dob           DateTime
+  status        String   @default("PENDING")
+  pdfPath       String?
+  phone         String?
+  transactionId String?
+  createdAt     DateTime @default(now())
+  fee           Float    @default(0.0)
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId]) // Critical for "My Files" lookup
+  @@index([status]) // Critical for Admin "Pending Orders" count
+  @@index([userId, status]) // Compound index for User's active orders
+}
+
+model Service {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  status    String   @default("Active")
+  fee       Float    @default(0.0)
+  icon      String?
+  link      String   @default("#")
+  createdAt DateTime @default(now())
+}
+
+model RechargeRequest {
+  id            String   @id @default(uuid())
+  amount        Float
+  paymentNumber String?
+  transactionId String
+  orderId       String?  @unique
+  status        String   @default("PENDING")
+  userId        String
+  createdAt     DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([userId, status])
+}
+
+model SystemSetting {
+  key   String @id
+  value String
+}
