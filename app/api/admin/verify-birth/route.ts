@@ -170,7 +170,12 @@ export async function POST(req: Request) {
                 if (!content.includes('registered person name')) throw new Error('Verification failed. Server response not recognized.');
 
                 // Generate PDF: Screenshot -> PDF Strategy
-                await page.emulateMediaType('print');
+                // REMOVED: await page.emulateMediaType('print'); // Causing missing data?
+                await page.emulateMediaType('screen'); // Enforce screen media
+
+                // Extra wait to ensure all data text is rendered
+                await new Promise(r => setTimeout(r, 2000));
+
                 await page.setViewport({ width: 1000, height: 1500, deviceScaleFactor: 2 });
                 await page.evaluate(() => {
                     document.body.style.backgroundColor = 'white';
