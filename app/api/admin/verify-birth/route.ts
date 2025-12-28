@@ -8,21 +8,33 @@ declare global {
     var __PAGE__: import('puppeteer-core').Page | undefined;
 }
 
-// Helper to launch or get existing browser
-async function getBrowser() {
-    // If browser exists and connected, return it
-    if (global.__BROWSER__ && global.__BROWSER__.isConnected()) {
-        return global.__BROWSER__;
+// Ensure browser is closed
+async function closeBrowser() {
+    if (global.__PAGE__ && !global.__PAGE__.isClosed()) {
+        try { await global.__PAGE__.close(); } catch (e) { }
     }
+    if (global.__BROWSER__) {
+        try {
+            if (global.__BROWSER__.isConnected()) await global.__BROWSER__.close();
+        } catch (e) { }
+    }
+    global.__BROWSER__ = undefined;
+    global.__PAGE__ = undefined;
+}
+
+// Helper to launch browser
+async function getBrowser() {
+    // Always start fresh for reliability given the "Failed to connect" errors
+    await closeBrowser();
 
     // Local Development Configuration (Windows/Mac)
     if (process.env.NODE_ENV === 'development') {
         const localExecutablePath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 
         global.__BROWSER__ = await puppeteer.launch({
-            args: ['--no-sandbox', '--disable-setuid-sandbox'],
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
             executablePath: localExecutablePath,
-            headless: true, // Force headless mode to prevent external browser window
+            headless: true,
             defaultViewport: null,
         });
         return global.__BROWSER__;
@@ -30,10 +42,10 @@ async function getBrowser() {
 
     // Production Configuration
     global.__BROWSER__ = await puppeteer.launch({
-        args: chromium.args,
+        args: [...chromium.args, '--disable-dev-shm-usage', '--disable-gpu'],
         defaultViewport: { width: 1920, height: 1080 },
         executablePath: await chromium.executablePath('https://github.com/Sparticuz/chromium/releases/download/v123.0.1/chromium-v123.0.1-pack.tar'),
-        headless: true, // Force headless mode to prevent external browser window
+        headless: true,
     });
     return global.__BROWSER__;
 }
@@ -45,22 +57,15 @@ export async function POST(req: Request) {
 
         // --- STEP 1: FETCH CAPTCHA ---
         if (action === 'FETCH_CAPTCHA') {
-            const browser = await getBrowser();
-
-            // Close existing page if any to ensure fresh start
-            if (global.__PAGE__ && !global.__PAGE__.isClosed()) {
-                await global.__PAGE__.close();
-            }
-
-            const page = await browser.newPage();
-            global.__PAGE__ = page; // Save page for Step 2
-
             try {
+                const browser = await getBrowser();
+                const page = await browser.newPage();
+                global.__PAGE__ = page;
+
                 await page.goto('https://everify.bdris.gov.bd/', { waitUntil: 'domcontentloaded', timeout: 30000 });
 
                 // Wait for captcha
                 await page.waitForSelector('#CaptchaImage', { timeout: 15000 });
-
                 const captchaElement = await page.$('#CaptchaImage');
 
                 let captchaBase64 = '';
@@ -70,18 +75,17 @@ export async function POST(req: Request) {
                     throw new Error('Captcha element not found');
                 }
 
-                // DO NOT CLOSE BROWSER HERE regarding persistent session
-                // We return response, browser stays open in background
-
+                // Keep browser open for Step 2 (session persistence needed for captcha)
                 return NextResponse.json({
                     success: true,
                     captchaImage: `data:image/png;base64,${captchaBase64}`,
                 });
 
             } catch (e) {
-                if (global.__PAGE__) await global.__PAGE__.close();
+                await closeBrowser();
                 console.error('Fetch Captcha Error:', e);
-                throw e;
+                // @ts-ignore
+                return NextResponse.json({ error: `Failed to load captcha: ${e.message}` }, { status: 500 });
             }
         }
 
@@ -91,7 +95,7 @@ export async function POST(req: Request) {
                 return NextResponse.json({ error: 'Missing required data' }, { status: 400 });
             }
 
-            // Reuse existing page
+            // Reuse existing page - MUST exist from Step 1
             if (!global.__BROWSER__ || !global.__PAGE__ || global.__PAGE__.isClosed()) {
                 return NextResponse.json({ error: 'Session Expired. Please try again.' }, { status: 400 });
             }
@@ -99,9 +103,7 @@ export async function POST(req: Request) {
             const page = global.__PAGE__;
 
             try {
-                // Restore focus if needed or just type
-
-                // Fill Form via DOM (safer for Datepickers)
+                // Fill Form
                 await page.evaluate((nidValue, dobValue, captchaValue) => {
                     const ubrn = document.querySelector('#ubrn') as HTMLInputElement;
                     const birthDate = document.querySelector('#BirthDate') as HTMLInputElement;
@@ -110,17 +112,14 @@ export async function POST(req: Request) {
                     if (ubrn) {
                         ubrn.value = nidValue;
                         ubrn.dispatchEvent(new Event('input', { bubbles: true }));
-                        ubrn.dispatchEvent(new Event('change', { bubbles: true }));
                     }
                     if (birthDate) {
                         birthDate.value = dobValue;
                         birthDate.dispatchEvent(new Event('input', { bubbles: true }));
-                        birthDate.dispatchEvent(new Event('change', { bubbles: true }));
                     }
                     if (captcha) {
                         captcha.value = captchaValue;
                         captcha.dispatchEvent(new Event('input', { bubbles: true }));
-                        captcha.dispatchEvent(new Event('change', { bubbles: true }));
                     }
                 }, nid, dob, captchaAnswer);
 
@@ -129,13 +128,8 @@ export async function POST(req: Request) {
                 const searchBtnSelector = 'input[type="submit"][value="Search"]';
                 await page.waitForSelector(searchBtnSelector, { timeout: 5000 });
 
-                const submissionPromise = Promise.all([
-                    // Use evaluate to click, often more reliable than page.click()
-                    page.evaluate((selector) => {
-                        const btn = document.querySelector(selector) as HTMLElement;
-                        if (btn) btn.click();
-                    }, searchBtnSelector),
-
+                await Promise.all([
+                    page.click(searchBtnSelector),
                     page.waitForFunction(
                         () => {
                             const text = document.body.innerText.toLowerCase();
@@ -144,23 +138,12 @@ export async function POST(req: Request) {
                                 text.includes('no record found') ||
                                 text.includes('does not match');
                         },
-                        { timeout: 120000, polling: 1000 }
+                        { timeout: 60000, polling: 1000 }
                     )
                 ]);
 
-                try {
-                    await submissionPromise;
-                } catch (timeoutError) {
-                    // debug: capture what is on the screen
-                    const bodyText = await page.evaluate(() => document.body.innerText);
-                    console.error('Timeout/Wait Error! Current Page Text (First 1000 chars):', bodyText.substring(0, 1000));
-
-                    throw new Error('Server response timeout (120s). The government server is too slow or unresponsive.');
-                }
-
                 const content = (await page.content()).toLowerCase();
 
-                // Error Checks (Case Insensitive)
                 if (content.includes('wrong captcha')) {
                     throw new Error('Wrong Captcha Code. Please try again.');
                 }
@@ -171,76 +154,47 @@ export async function POST(req: Request) {
                     throw new Error('Verification failed. Server response not recognized.');
                 }
 
-                // Generate PDF: Screenshot -> PDF Strategy (More Robust)
-                // 1. Capture Screenshot as PNG
-                // Use 'print' media type to get the official document look
+                // Generate PDF: Screenshot -> PDF Strategy
                 await page.emulateMediaType('print');
-                // Use smaller viewport width so content appears larger (zoomed in) relative to the page
                 await page.setViewport({ width: 1000, height: 1500, deviceScaleFactor: 2 });
 
-                // --- STYLE MANIPULATION FOR PRINT LOOK ---
                 await page.evaluate(() => {
-                    // Force white background
                     document.body.style.backgroundColor = 'white';
-
-                    // Inject CSS to maximize width and reduce margins
                     const style = document.createElement('style');
                     style.innerHTML = `
                         body { background-color: white !important; margin: 0 !important; padding: 10px !important; }
                         .container, .main-content, #main { 
-                            width: 100% !important; 
-                            max-width: none !important; 
-                            margin: 0 !important; 
-                            padding: 0 !important;
-                            box-shadow: none !important;
-                            border: none !important;
+                            width: 100% !important; max-width: none !important; margin: 0 !important; padding: 0 !important;
+                            box-shadow: none !important; border: none !important;
                         }
-                        // Ensure table fits
                         table { width: 100% !important; }
                     `;
                     document.head.appendChild(style);
-
-                    // Ensure specific container exists and is clean (fallback)
-                    const mainContainer = document.querySelector('.container') || document.querySelector('.main-content') || document.body;
-                    if (mainContainer instanceof HTMLElement) {
-                        mainContainer.style.backgroundColor = 'white';
-                    }
                 });
-                // -----------------------------------------
 
                 const screenshotBuffer = await page.screenshot({ fullPage: true, type: 'png' });
 
-                // 2. Create PDF using pdf-lib
                 const { PDFDocument } = await import('pdf-lib');
                 const pdfDoc = await PDFDocument.create();
                 const pngImage = await pdfDoc.embedPng(screenshotBuffer);
-
-                // Scale image to fit A4
                 const pngDims = pngImage.scale(1);
-                const pageA4 = pdfDoc.addPage([595.28, 841.89]); // Standard A4 points
-
-                // Scale to fit width with margin
+                const pageA4 = pdfDoc.addPage([595.28, 841.89]);
                 const margin = 20;
                 const availableWidth = pageA4.getWidth() - (margin * 2);
                 const scaleFactor = availableWidth / pngDims.width;
 
                 pageA4.drawImage(pngImage, {
                     x: margin,
-                    y: pageA4.getHeight() - (pngDims.height * scaleFactor) - margin, // Top alignment
+                    y: pageA4.getHeight() - (pngDims.height * scaleFactor) - margin,
                     width: pngDims.width * scaleFactor,
                     height: pngDims.height * scaleFactor,
                 });
 
                 const pdfBytes = await pdfDoc.save();
-                const pdfBuffer = Buffer.from(pdfBytes);
+                const pdfBase64 = Buffer.from(pdfBytes).toString('base64');
 
-                // (Debug saving removed for production)
-
-
-                const pdfBase64 = pdfBuffer.toString('base64');
-
-                // Close page on success
-                await page.close();
+                // CLEANUP ON SUCCESS
+                await closeBrowser();
 
                 return NextResponse.json({
                     success: true,
@@ -248,12 +202,11 @@ export async function POST(req: Request) {
                 });
 
             } catch (e: unknown) {
-                // If verify fails, close page so user can try again cleanly
-                if (global.__PAGE__ && !global.__PAGE__.isClosed()) {
-                    await global.__PAGE__.close();
-                }
+                // CLEANUP ON FAILURE
+                await closeBrowser();
                 console.error('Verify Step Error:', e);
-                const errorMessage = e instanceof Error ? e.message : 'Verification Failed';
+                // @ts-ignore
+                const errorMessage = e.message || 'Verification Failed';
                 return NextResponse.json({ error: errorMessage }, { status: 500 });
             }
         }
@@ -262,7 +215,9 @@ export async function POST(req: Request) {
 
     } catch (error: unknown) {
         console.error('API Error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Server Error';
+        await closeBrowser();
+        // @ts-ignore
+        const errorMessage = error.message || 'Server Error';
         return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }
