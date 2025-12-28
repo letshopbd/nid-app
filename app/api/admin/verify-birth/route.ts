@@ -34,7 +34,8 @@ async function getBrowser() {
             const browser = await puppeteer.connect({ browserWSEndpoint: global.__BROWSER_WS__ });
             if (browser.isConnected()) return browser;
         } catch (e) {
-            console.log('Failed to connect to existing browser, launching new one.');
+            console.log('Failed to connect to existing browser, clearing old session from memory.');
+            global.__BROWSER_WS__ = undefined; // CRITICAL: Clear invalid session
         }
     }
 
@@ -174,7 +175,13 @@ export async function POST(req: Request) {
                 await page.emulateMediaType('screen'); // Enforce screen media
 
                 // Extra wait to ensure all data text is rendered
-                await new Promise(r => setTimeout(r, 2000));
+                // "WE" is likely a placeholder. Wait for network idle to ensure AJAX finishes.
+                try {
+                    await page.waitForNetworkIdle({ timeout: 5000, idleTime: 500 });
+                } catch (e) {
+                    // If network doesn't settle, just wait manually
+                    await new Promise(r => setTimeout(r, 4000));
+                }
 
                 await page.setViewport({ width: 1000, height: 1500, deviceScaleFactor: 2 });
                 await page.evaluate(() => {
