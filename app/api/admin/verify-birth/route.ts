@@ -27,25 +27,62 @@ async function launchBrowser() {
 }
 
 // Get Connected Browser
+import fs from 'fs';
+import path from 'path';
+
+// Session File Path (Tmp dir or local)
+const SESSION_FILE = path.join(process.cwd(), '.browser-session');
+
+function saveSession(wsEndpoint: string) {
+    try {
+        fs.writeFileSync(SESSION_FILE, wsEndpoint, 'utf-8');
+    } catch (e) {
+        console.error('Failed to save session:', e);
+    }
+}
+
+function loadSession(): string | null {
+    try {
+        if (fs.existsSync(SESSION_FILE)) {
+            return fs.readFileSync(SESSION_FILE, 'utf-8').trim();
+        }
+    } catch (e) {
+        console.error('Failed to load session:', e);
+    }
+    return null;
+}
+
+// Get Connected Browser
 async function getBrowser() {
-    // Try to connect to existing session
-    if (global.__BROWSER_WS__) {
+    // 1. Try Global Memory
+    let wsEndpoint = global.__BROWSER_WS__;
+
+    // 2. Try File Persistence (Recovery from Restart)
+    if (!wsEndpoint) {
+        wsEndpoint = loadSession() || undefined;
+        if (wsEndpoint) console.log('Recovered session from file:', wsEndpoint);
+    }
+
+    if (wsEndpoint) {
         try {
-            const browser = await puppeteer.connect({ browserWSEndpoint: global.__BROWSER_WS__ });
+            const browser = await puppeteer.connect({ browserWSEndpoint: wsEndpoint });
             if (browser.isConnected()) {
-                // Verify responsiveness
-                await browser.version();
+                await browser.version(); // Health Check
+                global.__BROWSER_WS__ = wsEndpoint; // Restore to memory
                 return browser;
             }
         } catch (e) {
-            console.log('Failed to connect to existing browser, clearing old session from memory.');
-            global.__BROWSER_WS__ = undefined; // CRITICAL: Clear invalid session
+            console.log('Session invalid/dead. Clearing...');
+            global.__BROWSER_WS__ = undefined;
+            try { fs.unlinkSync(SESSION_FILE); } catch (err) { }
         }
     }
 
     // Launch new
     const browser = await launchBrowser();
-    global.__BROWSER_WS__ = browser.wsEndpoint();
+    const newEndpoint = browser.wsEndpoint();
+    global.__BROWSER_WS__ = newEndpoint;
+    saveSession(newEndpoint); // Persist
 
     // Create a dummy page to keep the process alive
     try { await browser.newPage(); } catch (e) { }
@@ -101,15 +138,16 @@ export async function POST(req: Request) {
                 return NextResponse.json({ error: 'Missing required data' }, { status: 400 });
             }
 
-            if (!global.__BROWSER_WS__) {
-                return NextResponse.json({ error: 'Session Expired: Browser unavailable. Refresh.' }, { status: 400 });
-            }
-
+            // Attempt to get browser (Restores session if lost)
             let browser;
             try {
-                browser = await puppeteer.connect({ browserWSEndpoint: global.__BROWSER_WS__ });
+                browser = await getBrowser();
             } catch (e) {
                 return NextResponse.json({ error: 'Session Expired: Reconnection failed. Refresh.' }, { status: 400 });
+            }
+
+            if (!browser || !browser.isConnected()) {
+                return NextResponse.json({ error: 'Session Expired: Browser unavailable. Refresh.' }, { status: 400 });
             }
 
             // Find the correct page (the last one opened that isn't dummy)
