@@ -262,36 +262,54 @@ export async function POST(req: Request) {
                     throw new Error('Verification failed. Server response not recognized.');
                 }
 
-                // Wait for complete data loading
+                // Wait for complete data loading - IMPROVED
                 console.log('Waiting for data to load completely...');
 
-                // Strategy 1: Wait for network idle
+                // Strategy 1: Wait for network idle (longer timeout)
                 try {
-                    await page.waitForNetworkIdle({ timeout: 8000, idleTime: 1000 });
+                    await page.waitForNetworkIdle({ timeout: 10000, idleTime: 1500 });
+                    console.log('Network idle achieved');
                 } catch (e) {
-                    console.log('Network idle timeout, using fallback wait');
+                    console.log('Network idle timeout, using fallback');
                 }
 
-                // Strategy 2: Wait for specific data fields to have real values
+                // Strategy 2: Wait for SPECIFIC name fields to load
                 try {
                     await page.waitForFunction(
                         () => {
-                            const cells = Array.from(document.querySelectorAll('td'));
-                            // Check if we have actual data (not just "WE" placeholders)
-                            const hasRealData = cells.some(cell => {
+                            // Get all table cells
+                            const allCells = Array.from(document.querySelectorAll('td'));
+
+                            // Look for cells with actual Bengali/English names (not placeholders)
+                            const nameFields = allCells.filter(cell => {
                                 const text = cell.innerText.trim();
-                                return text.length > 3 && text !== 'WE' && !text.match(/^[A-Z]{1,2}$/);
+                                // Valid name: length > 3, not "WE", not single letters
+                                return text.length > 3 &&
+                                    text !== 'WE' &&
+                                    !text.match(/^[A-Z]{1,2}$/) &&
+                                    !text.includes('Name') && // Exclude labels
+                                    !text.includes('Date') &&
+                                    !text.includes('Number');
                             });
-                            return hasRealData;
+
+                            // We need at least 2 name fields (person + father)
+                            const hasEnoughNames = nameFields.length >= 2;
+
+                            if (hasEnoughNames) {
+                                console.log('Found', nameFields.length, 'name fields');
+                            }
+
+                            return hasEnoughNames;
                         },
-                        { timeout: 15000, polling: 500 }
+                        { timeout: 20000, polling: 1000 }
                     );
+                    console.log('Data validation passed - names loaded');
                 } catch (e) {
-                    console.log('Data validation timeout, proceeding with current state');
+                    console.log('Data validation timeout - proceeding anyway');
                 }
 
                 // Additional safety wait
-                await new Promise(r => setTimeout(r, 3000));
+                await new Promise(r => setTimeout(r, 2000));
 
                 // Generate PDF
                 await page.emulateMediaType('screen');
@@ -333,8 +351,8 @@ export async function POST(req: Request) {
                 const pdfBytes = await pdfDoc.save();
                 const pdfBase64 = Buffer.from(pdfBytes).toString('base64');
 
-                // Cleanup
-                await page.close();
+                // DON'T close page - keep it for potential retries
+                // Just disconnect the Node wrapper
                 browser.disconnect();
 
                 return NextResponse.json({
