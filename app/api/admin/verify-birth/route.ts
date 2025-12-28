@@ -1,10 +1,34 @@
 import { NextResponse } from 'next/server';
 import puppeteer from 'puppeteer-core';
 import chromium from '@sparticuz/chromium-min';
+import fs from 'fs';
+import path from 'path';
 
 // Declare global types
 declare global {
-    var __BROWSER_WS__: string | undefined; // Store WS Endpoint instead of object
+    var __BROWSER_WS__: string | undefined;
+}
+
+// Session File Path
+const SESSION_FILE = path.join(process.cwd(), '.browser-session');
+
+function saveSession(wsEndpoint: string) {
+    try {
+        fs.writeFileSync(SESSION_FILE, wsEndpoint, 'utf-8');
+    } catch (e) {
+        console.error('Failed to save session:', e);
+    }
+}
+
+function loadSession(): string | null {
+    try {
+        if (fs.existsSync(SESSION_FILE)) {
+            return fs.readFileSync(SESSION_FILE, 'utf-8').trim();
+        }
+    } catch (e) {
+        console.error('Failed to load session:', e);
+    }
+    return null;
 }
 
 // Helper to launch browser
@@ -27,65 +51,33 @@ async function launchBrowser() {
 }
 
 // Get Connected Browser
-import fs from 'fs';
-import path from 'path';
-
-// Session File Path (Tmp dir or local)
-const SESSION_FILE = path.join(process.cwd(), '.browser-session');
-
-function saveSession(wsEndpoint: string) {
-    try {
-        fs.writeFileSync(SESSION_FILE, wsEndpoint, 'utf-8');
-    } catch (e) {
-        console.error('Failed to save session:', e);
-    }
-}
-
-function loadSession(): string | null {
-    try {
-        if (fs.existsSync(SESSION_FILE)) {
-            return fs.readFileSync(SESSION_FILE, 'utf-8').trim();
-        }
-    } catch (e) {
-        console.error('Failed to load session:', e);
-    }
-    return null;
-}
-
-// Get Connected Browser
 async function getBrowser() {
-    // 1. Try Global Memory
     let wsEndpoint = global.__BROWSER_WS__;
 
-    // 2. Try File Persistence (Recovery from Restart)
     if (!wsEndpoint) {
         wsEndpoint = loadSession() || undefined;
-        if (wsEndpoint) console.log('Recovered session from file:', wsEndpoint);
+        if (wsEndpoint) console.log('Recovered session from file');
     }
 
     if (wsEndpoint) {
         try {
             const browser = await puppeteer.connect({ browserWSEndpoint: wsEndpoint });
             if (browser.isConnected()) {
-                await browser.version(); // Health Check
-                global.__BROWSER_WS__ = wsEndpoint; // Restore to memory
+                await browser.version();
+                global.__BROWSER_WS__ = wsEndpoint;
                 return browser;
             }
         } catch (e) {
-            console.log('Session invalid/dead. Clearing...');
+            console.log('Session invalid. Clearing...');
             global.__BROWSER_WS__ = undefined;
             try { fs.unlinkSync(SESSION_FILE); } catch (err) { }
         }
     }
 
-    // Launch new
     const browser = await launchBrowser();
     const newEndpoint = browser.wsEndpoint();
     global.__BROWSER_WS__ = newEndpoint;
-    saveSession(newEndpoint); // Persist
-
-    // Create a dummy page to keep the process alive
-    try { await browser.newPage(); } catch (e) { }
+    saveSession(newEndpoint);
 
     return browser;
 }
@@ -99,25 +91,63 @@ export async function POST(req: Request) {
         if (action === 'FETCH_CAPTCHA') {
             let browser;
             let page;
+
             try {
                 browser = await getBrowser();
 
-                // Open a NEW page for this session (leave dummy alone)
+                // ALWAYS create a fresh page for each verification attempt
                 page = await browser.newPage();
 
-                await page.goto('https://everify.bdris.gov.bd/', { waitUntil: 'domcontentloaded', timeout: 30000 });
+                // Navigate to portal
+                await page.goto('https://everify.bdris.gov.bd/', {
+                    waitUntil: 'networkidle0',
+                    timeout: 30000
+                });
 
-                // Wait for captcha
-                await page.waitForSelector('#CaptchaImage', { timeout: 15000 });
-                const captchaElement = await page.$('#CaptchaImage');
+                // Wait for captcha with multiple strategies
+                let captchaBase64;
+                let retries = 3;
 
-                if (!captchaElement) throw new Error('Captcha element not found');
-                const captchaBase64 = await captchaElement.screenshot({ encoding: 'base64' });
+                while (retries > 0) {
+                    try {
+                        // Wait for element to exist AND be visible
+                        await page.waitForSelector('#CaptchaImage', {
+                            visible: true,
+                            timeout: 10000
+                        });
 
-                // Mark this page so we can find it later
-                await page.evaluate(() => { (window as any)._IS_TARGET_PAGE = 'YES'; });
+                        // Additional wait for rendering
+                        await new Promise(r => setTimeout(r, 1000));
 
-                // Disconnect Node Wrapper to prevent accidental closure (keep Process alive)
+                        // Verify element has dimensions
+                        const hasSize = await page.evaluate(() => {
+                            const img = document.querySelector('#CaptchaImage') as HTMLImageElement;
+                            return img && img.offsetWidth > 0 && img.offsetHeight > 0;
+                        });
+
+                        if (!hasSize) {
+                            throw new Error('Captcha element has no dimensions');
+                        }
+
+                        const captchaElement = await page.$('#CaptchaImage');
+                        if (!captchaElement) throw new Error('Captcha element not found');
+
+                        captchaBase64 = await captchaElement.screenshot({ encoding: 'base64' });
+                        break; // Success
+
+                    } catch (e) {
+                        retries--;
+                        if (retries === 0) throw e;
+                        console.log(`Captcha load attempt failed, retrying... (${retries} left)`);
+                        await new Promise(r => setTimeout(r, 2000));
+                    }
+                }
+
+                // Mark this page for later use
+                await page.evaluate(() => {
+                    (window as any)._VERIFICATION_PAGE = Date.now();
+                });
+
                 browser.disconnect();
 
                 return NextResponse.json({
@@ -128,7 +158,16 @@ export async function POST(req: Request) {
             } catch (e: any) {
                 if (page) await page.close().catch(() => { });
                 if (browser) browser.disconnect();
-                return NextResponse.json({ error: `Failed to load captcha: ${e.message}` }, { status: 500 });
+
+                if (e.message.includes('Node has 0 width') || e.message.includes('no dimensions')) {
+                    return NextResponse.json({
+                        error: 'Captcha loading failed. Please try again.'
+                    }, { status: 503 });
+                }
+
+                return NextResponse.json({
+                    error: `Failed to load captcha: ${e.message}`
+                }, { status: 500 });
             }
         }
 
@@ -138,40 +177,35 @@ export async function POST(req: Request) {
                 return NextResponse.json({ error: 'Missing required data' }, { status: 400 });
             }
 
-            // Attempt to get browser (Restores session if lost)
             let browser;
-            try {
-                browser = await getBrowser();
-            } catch (e) {
-                return NextResponse.json({ error: 'Session Expired: Reconnection failed. Refresh.' }, { status: 400 });
-            }
-
-            if (!browser || !browser.isConnected()) {
-                return NextResponse.json({ error: 'Session Expired: Browser unavailable. Refresh.' }, { status: 400 });
-            }
-
-            // Find the correct page (the last one opened that isn't dummy)
-            const pages = await browser.pages();
             let page;
 
-            // Search for our marked page
-            for (const p of pages) {
-                try {
-                    const isTarget = await p.evaluate(() => (window as any)._IS_TARGET_PAGE === 'YES');
-                    if (isTarget) {
-                        page = p;
-                        break;
-                    }
-                } catch (e) { }
-            }
-
-            if (!page) {
-                browser.disconnect();
-                return NextResponse.json({ error: `Session Expired: Page lost (Active Pages: ${pages.length}). Refresh.` }, { status: 400 });
-            }
-
             try {
-                // Fill Form
+                browser = await getBrowser();
+
+                // Find the verification page
+                const pages = await browser.pages();
+
+                for (const p of pages) {
+                    try {
+                        const hasMarker = await p.evaluate(() =>
+                            typeof (window as any)._VERIFICATION_PAGE !== 'undefined'
+                        );
+                        if (hasMarker) {
+                            page = p;
+                            break;
+                        }
+                    } catch (e) { }
+                }
+
+                if (!page) {
+                    browser.disconnect();
+                    return NextResponse.json({
+                        error: 'Session expired. Please refresh and try again.'
+                    }, { status: 400 });
+                }
+
+                // Fill form
                 await page.evaluate((nidValue, dobValue, captchaValue) => {
                     const ubrn = document.querySelector('#ubrn') as HTMLInputElement;
                     const birthDate = document.querySelector('#BirthDate') as HTMLInputElement;
@@ -180,19 +214,23 @@ export async function POST(req: Request) {
                     if (ubrn) {
                         ubrn.value = nidValue;
                         ubrn.dispatchEvent(new Event('input', { bubbles: true }));
+                        ubrn.dispatchEvent(new Event('change', { bubbles: true }));
                     }
                     if (birthDate) {
                         birthDate.value = dobValue;
                         birthDate.dispatchEvent(new Event('input', { bubbles: true }));
+                        birthDate.dispatchEvent(new Event('change', { bubbles: true }));
                     }
                     if (captcha) {
                         captcha.value = captchaValue;
                         captcha.dispatchEvent(new Event('input', { bubbles: true }));
+                        captcha.dispatchEvent(new Event('change', { bubbles: true }));
                     }
                 }, nid, dob, captchaAnswer);
 
-                await new Promise(r => setTimeout(r, 500));
+                await new Promise(r => setTimeout(r, 1000));
 
+                // Submit and wait for response
                 const searchBtnSelector = 'input[type="submit"][value="Search"]';
                 await page.waitForSelector(searchBtnSelector, { timeout: 5000 });
 
@@ -212,31 +250,59 @@ export async function POST(req: Request) {
 
                 const content = (await page.content()).toLowerCase();
 
-                if (content.includes('wrong captcha')) throw new Error('Wrong Captcha Code. Please try again.');
-                if (content.includes('does not match') || content.includes('no record found')) throw new Error('No Record Found for this NID/DOB.');
-                if (!content.includes('registered person name')) throw new Error('Verification failed. Server response not recognized.');
-
-                // Generate PDF: Screenshot -> PDF Strategy
-                // REMOVED: await page.emulateMediaType('print'); // Causing missing data?
-                await page.emulateMediaType('screen'); // Enforce screen media
-
-                // Extra wait to ensure all data text is rendered
-                // "WE" is likely a placeholder. Wait for network idle to ensure AJAX finishes.
-                try {
-                    await page.waitForNetworkIdle({ timeout: 5000, idleTime: 500 });
-                } catch (e) {
-                    // If network doesn't settle, just wait manually
-                    await new Promise(r => setTimeout(r, 4000));
+                if (content.includes('wrong captcha')) {
+                    throw new Error('Wrong Captcha Code. Please try again.');
+                }
+                if (content.includes('does not match') || content.includes('no record found')) {
+                    throw new Error('No Record Found for this NID/DOB.');
+                }
+                if (!content.includes('registered person name')) {
+                    throw new Error('Verification failed. Server response not recognized.');
                 }
 
+                // Wait for complete data loading
+                console.log('Waiting for data to load completely...');
+
+                // Strategy 1: Wait for network idle
+                try {
+                    await page.waitForNetworkIdle({ timeout: 8000, idleTime: 1000 });
+                } catch (e) {
+                    console.log('Network idle timeout, using fallback wait');
+                }
+
+                // Strategy 2: Wait for specific data fields to have real values
+                try {
+                    await page.waitForFunction(
+                        () => {
+                            const cells = Array.from(document.querySelectorAll('td'));
+                            // Check if we have actual data (not just "WE" placeholders)
+                            const hasRealData = cells.some(cell => {
+                                const text = cell.innerText.trim();
+                                return text.length > 3 && text !== 'WE' && !text.match(/^[A-Z]{1,2}$/);
+                            });
+                            return hasRealData;
+                        },
+                        { timeout: 15000, polling: 500 }
+                    );
+                } catch (e) {
+                    console.log('Data validation timeout, proceeding with current state');
+                }
+
+                // Additional safety wait
+                await new Promise(r => setTimeout(r, 3000));
+
+                // Generate PDF
+                await page.emulateMediaType('screen');
                 await page.setViewport({ width: 1000, height: 1500, deviceScaleFactor: 2 });
+
                 await page.evaluate(() => {
                     document.body.style.backgroundColor = 'white';
                     const style = document.createElement('style');
                     style.innerHTML = `
                         body { background-color: white !important; margin: 0 !important; padding: 10px !important; }
                         .container, .main-content, #main { 
-                            width: 100% !important; max-width: none !important; margin: 0 !important; padding: 0 !important;
+                            width: 100% !important; max-width: none !important; 
+                            margin: 0 !important; padding: 0 !important;
                             box-shadow: none !important; border: none !important;
                         }
                         table { width: 100% !important; }
@@ -265,7 +331,7 @@ export async function POST(req: Request) {
                 const pdfBytes = await pdfDoc.save();
                 const pdfBase64 = Buffer.from(pdfBytes).toString('base64');
 
-                // CLEANUP: Close THIS page only.
+                // Cleanup
                 await page.close();
                 browser.disconnect();
 
@@ -278,7 +344,9 @@ export async function POST(req: Request) {
                 if (page) await page.close().catch(() => { });
                 if (browser) browser.disconnect();
                 console.error('Verify Step Error:', e);
-                return NextResponse.json({ error: e.message || 'Verification Failed' }, { status: 500 });
+                return NextResponse.json({
+                    error: e.message || 'Verification Failed'
+                }, { status: 500 });
             }
         }
 
@@ -286,6 +354,8 @@ export async function POST(req: Request) {
 
     } catch (error: any) {
         console.error('API Error:', error);
-        return NextResponse.json({ error: error.message || 'Server Error' }, { status: 500 });
+        return NextResponse.json({
+            error: error.message || 'Server Error'
+        }, { status: 500 });
     }
 }
