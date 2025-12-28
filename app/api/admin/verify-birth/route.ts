@@ -96,8 +96,14 @@ export async function POST(req: Request) {
             }
 
             // Reuse existing page - MUST exist from Step 1
-            if (!global.__BROWSER__ || !global.__PAGE__ || global.__PAGE__.isClosed()) {
-                return NextResponse.json({ error: 'Session Expired. Please try again.' }, { status: 400 });
+            if (!global.__BROWSER__) {
+                return NextResponse.json({ error: 'Session Expired: Browser instance lost. Please try again.' }, { status: 400 });
+            }
+            if (!global.__PAGE__) {
+                return NextResponse.json({ error: 'Session Expired: Page instance lost. Please try again.' }, { status: 400 });
+            }
+            if (global.__PAGE__.isClosed()) {
+                return NextResponse.json({ error: 'Session Expired: Page closed unexpectedly. Please try again.' }, { status: 400 });
             }
 
             const page = global.__PAGE__;
