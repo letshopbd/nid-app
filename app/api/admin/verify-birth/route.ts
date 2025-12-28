@@ -188,14 +188,16 @@ export async function POST(req: Request) {
 
                 for (const p of pages) {
                     try {
-                        const hasMarker = await p.evaluate(() =>
-                            typeof (window as any)._VERIFICATION_PAGE !== 'undefined'
-                        );
-                        if (hasMarker) {
+                        const url = p.url();
+                        // Look for the government portal URL
+                        if (url.includes('everify.bdris.gov.bd')) {
                             page = p;
+                            console.log('Found verification page by URL:', url);
                             break;
                         }
-                    } catch (e) { }
+                    } catch (e) {
+                        console.log('Error checking page:', e);
+                    }
                 }
 
                 if (!page) {
