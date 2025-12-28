@@ -111,7 +111,7 @@ export default function DashboardPage() {
 
                 const englishNamesMap: Record<string, string> = {
                     'Sign Copy NID': 'Sign Copy to NID',
-                    'Birth Registration': 'Make Birth Reg',
+                    // 'Birth Registration': 'Make Birth Reg', // REMOVED: Now matches directly
                     'Server Copy (Unofficial)': 'Server Copy Unofficial',
                     'Sign to Server Copy': 'Sign to Server Copy',
                     'TIN Certificate': 'Tin Certificate'
