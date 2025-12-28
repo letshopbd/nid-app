@@ -6,7 +6,7 @@ import {
     CheckCircle,
     XCircle,
     FileText,
-    PlayCircle, // Already imported, but instruction implies ensuring it's there.
+    PlayCircle,
     Download,
     Upload,
     ChevronDown
@@ -14,7 +14,7 @@ import {
 import { toast } from 'sonner';
 import SuccessModal from '@/app/components/SuccessModal';
 import ConfirmationModal from '@/app/components/ConfirmationModal';
-import VerificationModal from '@/app/components/VerificationModal'; // Added import
+import VerificationModal from '@/app/components/VerificationModal';
 import { uploadFiles } from '@/app/utils/uploadthing';
 
 interface Order {
@@ -63,6 +63,7 @@ export default function OrdersPage() {
         orderId: '',
         captchaImage: null as string | null,
         cookies: null as any,
+        sessionId: null as string | null, // Added Session ID
         status: 'IDLE', // 'IDLE' | 'FETCHING' | 'VERIFYING' | 'SUCCESS' | 'ERROR'
         error: undefined as string | undefined
     });
@@ -110,11 +111,6 @@ export default function OrdersPage() {
             if (!res.ok) {
                 fetchOrders(); // Revert if failed
                 setSuccessModal({ isOpen: true, title: 'Error', message: 'Failed to delete order.' });
-            } else {
-                // No need to show success modal for delete usually, purely to reduce friction, but user asked for popups.
-                // Let's show a small success modal or just rely on optimistic UI. 
-                // User said "ami jokhon delete korte jabo tokhon amar kase popup show hobe" (When I go to delete, show popup).
-                // That's the confirmation one. 
             }
         } catch (error) {
             console.error('Error deleting order:', error);
@@ -158,7 +154,6 @@ export default function OrdersPage() {
             if (res.ok) {
                 const updatedOrder = await res.json();
                 setOrders(orders.map(o => o.id === id ? { ...o, ...updatedOrder } : o));
-                // Optional: Show success toast/modal? User asked specifically for upload popup. 
             } else {
                 setOrders(previousOrders); // Revert
                 setSuccessModal({ isOpen: true, title: 'Error', message: 'Failed to update status.' });
@@ -263,6 +258,7 @@ export default function OrdersPage() {
             orderId,
             captchaImage: null,
             cookies: null,
+            sessionId: null,
             status: 'FETCHING',
             error: undefined
         });
@@ -281,11 +277,10 @@ export default function OrdersPage() {
                         ...prev,
                         captchaImage: data.captchaImage,
                         cookies: data.cookies,
+                        sessionId: data.sessionId, // Store Session ID
                         status: 'IDLE' // Ready for input
                     }));
                 } else {
-                    // throw new Error('Failed to load captcha. ' + (data.error || ''));
-                    // Mock for now if server fails? No, let's show error.
                     throw new Error(data.error || 'Failed to load captcha');
                 }
             } else {
@@ -297,7 +292,7 @@ export default function OrdersPage() {
     };
 
     const executeVerification = async (answer: string) => {
-        const { orderId, cookies } = verificationState;
+        const { orderId, cookies, sessionId } = verificationState;
         const order = orders.find(o => o.id === orderId);
 
         if (!order) return;
@@ -314,7 +309,8 @@ export default function OrdersPage() {
                     nid: order.nid,
                     dob: formatDateISO(order.dob),
                     captchaAnswer: answer,
-                    cookies: cookies
+                    cookies: cookies,
+                    sessionId: sessionId // Send Session ID back to server
                 })
             });
 
@@ -325,7 +321,7 @@ export default function OrdersPage() {
             }
 
             // 2. Convert Base64 to File (Robust)
-            const cleanBase64 = data.pdfBase64.replace(/[^A-Za-z0-9+/=]/g, ""); // Remove any non-base64 chars (newlines, etc.)
+            const cleanBase64 = data.pdfBase64.replace(/[^A-Za-z0-9+/=]/g, ""); // Remove any non-base64 chars
 
             let byteCharacters;
             try {
@@ -349,12 +345,10 @@ export default function OrdersPage() {
             }
 
             // 3. Upload File
-            // Note: We reuse handleFileUpload which handles UploadThing + DB Update
             const uploadSuccess = await handleFileUpload(orderId, 'COMPLETED', file);
 
             if (uploadSuccess) {
                 setVerificationState(prev => ({ ...prev, status: 'SUCCESS' }));
-                // Close modal after short delay? User might want to see success.
             } else {
                 throw new Error('Upload to Cloud Storage failed. Check console for details.');
             }
