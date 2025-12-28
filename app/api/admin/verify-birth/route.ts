@@ -8,23 +8,35 @@ declare global {
     var __PAGE__: import('puppeteer-core').Page | undefined;
 }
 
-// Ensure browser is closed
-async function closeBrowser() {
-    if (global.__PAGE__ && !global.__PAGE__.isClosed()) {
-        try { await global.__PAGE__.close(); } catch (e) { }
+// Close Page helper
+async function closePage() {
+    if (global.__PAGE__) {
+        try {
+            if (!global.__PAGE__.isClosed()) await global.__PAGE__.close();
+        } catch (e) { }
+        global.__PAGE__ = undefined;
     }
+}
+
+// Close Browser helper (Full Cleanup)
+async function closeBrowser() {
+    await closePage();
     if (global.__BROWSER__) {
         try {
             if (global.__BROWSER__.isConnected()) await global.__BROWSER__.close();
         } catch (e) { }
+        global.__BROWSER__ = undefined;
     }
-    global.__BROWSER__ = undefined;
-    global.__PAGE__ = undefined;
 }
 
-// Helper to launch browser
+// Helper to launch or get existing browser
 async function getBrowser() {
-    // Always start fresh for reliability given the "Failed to connect" errors
+    // REUSE Strategy: If browser is healthy, use it.
+    if (global.__BROWSER__ && global.__BROWSER__.isConnected()) {
+        return global.__BROWSER__;
+    }
+
+    // If not, clean up and start fresh
     await closeBrowser();
 
     // Local Development Configuration (Windows/Mac)
@@ -59,6 +71,10 @@ export async function POST(req: Request) {
         if (action === 'FETCH_CAPTCHA') {
             try {
                 const browser = await getBrowser();
+
+                // Always start with a fresh page for a new captcha request
+                await closePage();
+
                 const page = await browser.newPage();
                 global.__PAGE__ = page;
 
@@ -75,13 +91,14 @@ export async function POST(req: Request) {
                     throw new Error('Captcha element not found');
                 }
 
-                // Keep browser open for Step 2 (session persistence needed for captcha)
                 return NextResponse.json({
                     success: true,
                     captchaImage: `data:image/png;base64,${captchaBase64}`,
                 });
 
             } catch (e) {
+                // If fetch fails, close page, but maybe keep browser for retry? 
+                // Using closeBrowser() is safer to clear potential zombie states if fetch failed heavily.
                 await closeBrowser();
                 console.error('Fetch Captcha Error:', e);
                 // @ts-ignore
@@ -95,15 +112,11 @@ export async function POST(req: Request) {
                 return NextResponse.json({ error: 'Missing required data' }, { status: 400 });
             }
 
-            // Reuse existing page - MUST exist from Step 1
             if (!global.__BROWSER__) {
                 return NextResponse.json({ error: 'Session Expired: Browser instance lost. Please try again.' }, { status: 400 });
             }
-            if (!global.__PAGE__) {
-                return NextResponse.json({ error: 'Session Expired: Page instance lost. Please try again.' }, { status: 400 });
-            }
-            if (global.__PAGE__.isClosed()) {
-                return NextResponse.json({ error: 'Session Expired: Page closed unexpectedly. Please try again.' }, { status: 400 });
+            if (!global.__PAGE__ || global.__PAGE__.isClosed()) {
+                return NextResponse.json({ error: 'Session Expired: Page closed. Please refresh captcha.' }, { status: 400 });
             }
 
             const page = global.__PAGE__;
@@ -199,8 +212,8 @@ export async function POST(req: Request) {
                 const pdfBytes = await pdfDoc.save();
                 const pdfBase64 = Buffer.from(pdfBytes).toString('base64');
 
-                // CLEANUP ON SUCCESS
-                await closeBrowser();
+                // CLEANUP: Close the PAGE only. Keep browser alive for next user.
+                await closePage();
 
                 return NextResponse.json({
                     success: true,
@@ -208,8 +221,8 @@ export async function POST(req: Request) {
                 });
 
             } catch (e: unknown) {
-                // CLEANUP ON FAILURE
-                await closeBrowser();
+                // FAILURE: Close PAGE. Keep browser.
+                await closePage();
                 console.error('Verify Step Error:', e);
                 // @ts-ignore
                 const errorMessage = e.message || 'Verification Failed';
@@ -221,6 +234,7 @@ export async function POST(req: Request) {
 
     } catch (error: unknown) {
         console.error('API Error:', error);
+        // On strict error, maybe close browser to be safe
         await closeBrowser();
         // @ts-ignore
         const errorMessage = error.message || 'Server Error';
