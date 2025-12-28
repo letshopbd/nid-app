@@ -284,7 +284,8 @@ export default function OrdersPage() {
                     throw new Error(data.error || 'Failed to load captcha');
                 }
             } else {
-                throw new Error('Failed to connect to verification server');
+                const errorInfo = await res.json().catch(() => ({}));
+                throw new Error(errorInfo.error || 'Failed to connect to verification server');
             }
         } catch (e: any) {
             setVerificationState(prev => ({ ...prev, status: 'ERROR', error: e.message }));

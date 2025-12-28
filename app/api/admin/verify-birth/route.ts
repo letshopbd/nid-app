@@ -32,7 +32,11 @@ async function getBrowser() {
     if (global.__BROWSER_WS__) {
         try {
             const browser = await puppeteer.connect({ browserWSEndpoint: global.__BROWSER_WS__ });
-            if (browser.isConnected()) return browser;
+            if (browser.isConnected()) {
+                // Verify responsiveness
+                await browser.version();
+                return browser;
+            }
         } catch (e) {
             console.log('Failed to connect to existing browser, clearing old session from memory.');
             global.__BROWSER_WS__ = undefined; // CRITICAL: Clear invalid session
@@ -56,11 +60,13 @@ export async function POST(req: Request) {
 
         // --- STEP 1: FETCH CAPTCHA ---
         if (action === 'FETCH_CAPTCHA') {
+            let browser;
+            let page;
             try {
-                const browser = await getBrowser();
+                browser = await getBrowser();
 
                 // Open a NEW page for this session (leave dummy alone)
-                const page = await browser.newPage();
+                page = await browser.newPage();
 
                 await page.goto('https://everify.bdris.gov.bd/', { waitUntil: 'domcontentloaded', timeout: 30000 });
 
@@ -83,6 +89,8 @@ export async function POST(req: Request) {
                 });
 
             } catch (e: any) {
+                if (page) await page.close().catch(() => { });
+                if (browser) browser.disconnect();
                 return NextResponse.json({ error: `Failed to load captcha: ${e.message}` }, { status: 500 });
             }
         }
@@ -229,8 +237,8 @@ export async function POST(req: Request) {
                 });
 
             } catch (e: any) {
-                await page.close();
-                browser.disconnect();
+                if (page) await page.close().catch(() => { });
+                if (browser) browser.disconnect();
                 console.error('Verify Step Error:', e);
                 return NextResponse.json({ error: e.message || 'Verification Failed' }, { status: 500 });
             }
