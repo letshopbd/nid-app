@@ -2,72 +2,50 @@ import { NextResponse } from 'next/server';
 import puppeteer from 'puppeteer-core';
 import chromium from '@sparticuz/chromium-min';
 
-// Declare global types to prevent TS errors
+// Declare global types
 declare global {
-    var __BROWSER__: import('puppeteer-core').Browser | undefined;
-    var __PAGE__: import('puppeteer-core').Page | undefined;
+    var __BROWSER_WS__: string | undefined; // Store WS Endpoint instead of object
 }
 
-// Close Page helper
-async function closePage() {
-    if (global.__PAGE__) {
-        try {
-            if (!global.__PAGE__.isClosed()) await global.__PAGE__.close();
-        } catch (e) { }
-        global.__PAGE__ = undefined;
-    }
-}
-
-// Close Browser helper (Full Cleanup)
-async function closeBrowser() {
-    await closePage();
-    if (global.__BROWSER__) {
-        try {
-            if (global.__BROWSER__.isConnected()) await global.__BROWSER__.close();
-        } catch (e) { }
-        global.__BROWSER__ = undefined;
-    }
-}
-
-// Helper to launch or get existing browser
-async function getBrowser() {
-    // REUSE Strategy: If browser is healthy, use it.
-    if (global.__BROWSER__ && global.__BROWSER__.isConnected()) {
-        return global.__BROWSER__;
-    }
-
-    // If not, clean up and start fresh
-    await closeBrowser();
-
-    // Local Development Configuration (Windows/Mac)
+// Helper to launch browser
+async function launchBrowser() {
     if (process.env.NODE_ENV === 'development') {
         const localExecutablePath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
-
-        global.__BROWSER__ = await puppeteer.launch({
+        return await puppeteer.launch({
             args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
             executablePath: localExecutablePath,
             headless: true,
             defaultViewport: null,
         });
-
-        // Open a dummy page to keep browser alive
-        try { await global.__BROWSER__.newPage(); } catch (e) { }
-
-        return global.__BROWSER__;
     }
-
-    // Production Configuration
-    global.__BROWSER__ = await puppeteer.launch({
+    return await puppeteer.launch({
         args: [...chromium.args, '--disable-dev-shm-usage', '--disable-gpu'],
         defaultViewport: { width: 1920, height: 1080 },
         executablePath: await chromium.executablePath('https://github.com/Sparticuz/chromium/releases/download/v123.0.1/chromium-v123.0.1-pack.tar'),
         headless: true,
     });
+}
 
-    // Open a dummy page to keep browser alive
-    try { await global.__BROWSER__.newPage(); } catch (e) { }
+// Get Connected Browser
+async function getBrowser() {
+    // Try to connect to existing session
+    if (global.__BROWSER_WS__) {
+        try {
+            const browser = await puppeteer.connect({ browserWSEndpoint: global.__BROWSER_WS__ });
+            if (browser.isConnected()) return browser;
+        } catch (e) {
+            console.log('Failed to connect to existing browser, launching new one.');
+        }
+    }
 
-    return global.__BROWSER__;
+    // Launch new
+    const browser = await launchBrowser();
+    global.__BROWSER_WS__ = browser.wsEndpoint();
+
+    // Create a dummy page to keep the process alive
+    try { await browser.newPage(); } catch (e) { }
+
+    return browser;
 }
 
 export async function POST(req: Request) {
@@ -80,11 +58,8 @@ export async function POST(req: Request) {
             try {
                 const browser = await getBrowser();
 
-                // Always start with a fresh page for a new captcha request
-                await closePage();
-
+                // Open a NEW page for this session (leave dummy alone)
                 const page = await browser.newPage();
-                global.__PAGE__ = page;
 
                 await page.goto('https://everify.bdris.gov.bd/', { waitUntil: 'domcontentloaded', timeout: 30000 });
 
@@ -92,42 +67,61 @@ export async function POST(req: Request) {
                 await page.waitForSelector('#CaptchaImage', { timeout: 15000 });
                 const captchaElement = await page.$('#CaptchaImage');
 
-                let captchaBase64 = '';
-                if (captchaElement) {
-                    captchaBase64 = await captchaElement.screenshot({ encoding: 'base64' });
-                } else {
-                    throw new Error('Captcha element not found');
-                }
+                if (!captchaElement) throw new Error('Captcha element not found');
+                const captchaBase64 = await captchaElement.screenshot({ encoding: 'base64' });
+
+                // Mark this page so we can find it later
+                await page.evaluate(() => { (window as any)._IS_TARGET_PAGE = 'YES'; });
+
+                // Disconnect Node Wrapper to prevent accidental closure (keep Process alive)
+                browser.disconnect();
 
                 return NextResponse.json({
                     success: true,
                     captchaImage: `data:image/png;base64,${captchaBase64}`,
                 });
 
-            } catch (e) {
-                // If fetch fails, close page, but maybe keep browser for retry? 
-                // Using closeBrowser() is safer to clear potential zombie states if fetch failed heavily.
-                await closeBrowser();
-                console.error('Fetch Captcha Error:', e);
-                // @ts-ignore
+            } catch (e: any) {
                 return NextResponse.json({ error: `Failed to load captcha: ${e.message}` }, { status: 500 });
             }
         }
 
-        // --- STEP 2: SUBMIT & VERIFY ---
+        // --- STEP 2: VERIFY ---
         if (action === 'VERIFY') {
             if (!captchaAnswer || !nid || !dob) {
                 return NextResponse.json({ error: 'Missing required data' }, { status: 400 });
             }
 
-            if (!global.__BROWSER__) {
-                return NextResponse.json({ error: 'Session Expired: Browser instance lost. Please try again.' }, { status: 400 });
-            }
-            if (!global.__PAGE__ || global.__PAGE__.isClosed()) {
-                return NextResponse.json({ error: 'Session Expired: Page closed. Please refresh captcha.' }, { status: 400 });
+            if (!global.__BROWSER_WS__) {
+                return NextResponse.json({ error: 'Session Expired: Browser unavailable. Refresh.' }, { status: 400 });
             }
 
-            const page = global.__PAGE__;
+            let browser;
+            try {
+                browser = await puppeteer.connect({ browserWSEndpoint: global.__BROWSER_WS__ });
+            } catch (e) {
+                return NextResponse.json({ error: 'Session Expired: Reconnection failed. Refresh.' }, { status: 400 });
+            }
+
+            // Find the correct page (the last one opened that isn't dummy)
+            const pages = await browser.pages();
+            let page;
+
+            // Search for our marked page
+            for (const p of pages) {
+                try {
+                    const isTarget = await p.evaluate(() => (window as any)._IS_TARGET_PAGE === 'YES');
+                    if (isTarget) {
+                        page = p;
+                        break;
+                    }
+                } catch (e) { }
+            }
+
+            if (!page) {
+                browser.disconnect();
+                return NextResponse.json({ error: `Session Expired: Page lost (Active Pages: ${pages.length}). Refresh.` }, { status: 400 });
+            }
 
             try {
                 // Fill Form
@@ -171,20 +165,13 @@ export async function POST(req: Request) {
 
                 const content = (await page.content()).toLowerCase();
 
-                if (content.includes('wrong captcha')) {
-                    throw new Error('Wrong Captcha Code. Please try again.');
-                }
-                if (content.includes('does not match') || content.includes('no record found')) {
-                    throw new Error('No Record Found for this NID/DOB.');
-                }
-                if (!content.includes('registered person name')) {
-                    throw new Error('Verification failed. Server response not recognized.');
-                }
+                if (content.includes('wrong captcha')) throw new Error('Wrong Captcha Code. Please try again.');
+                if (content.includes('does not match') || content.includes('no record found')) throw new Error('No Record Found for this NID/DOB.');
+                if (!content.includes('registered person name')) throw new Error('Verification failed. Server response not recognized.');
 
                 // Generate PDF: Screenshot -> PDF Strategy
                 await page.emulateMediaType('print');
                 await page.setViewport({ width: 1000, height: 1500, deviceScaleFactor: 2 });
-
                 await page.evaluate(() => {
                     document.body.style.backgroundColor = 'white';
                     const style = document.createElement('style');
@@ -220,32 +207,27 @@ export async function POST(req: Request) {
                 const pdfBytes = await pdfDoc.save();
                 const pdfBase64 = Buffer.from(pdfBytes).toString('base64');
 
-                // CLEANUP: Close the PAGE only. Keep browser alive for next user.
-                await closePage();
+                // CLEANUP: Close THIS page only.
+                await page.close();
+                browser.disconnect();
 
                 return NextResponse.json({
                     success: true,
                     pdfBase64: pdfBase64
                 });
 
-            } catch (e: unknown) {
-                // FAILURE: Close PAGE. Keep browser.
-                await closePage();
+            } catch (e: any) {
+                await page.close();
+                browser.disconnect();
                 console.error('Verify Step Error:', e);
-                // @ts-ignore
-                const errorMessage = e.message || 'Verification Failed';
-                return NextResponse.json({ error: errorMessage }, { status: 500 });
+                return NextResponse.json({ error: e.message || 'Verification Failed' }, { status: 500 });
             }
         }
 
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
 
-    } catch (error: unknown) {
+    } catch (error: any) {
         console.error('API Error:', error);
-        // On strict error, maybe close browser to be safe
-        await closeBrowser();
-        // @ts-ignore
-        const errorMessage = error.message || 'Server Error';
-        return NextResponse.json({ error: errorMessage }, { status: 500 });
+        return NextResponse.json({ error: error.message || 'Server Error' }, { status: 500 });
     }
 }
