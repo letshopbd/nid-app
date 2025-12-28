@@ -10,7 +10,7 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json();
-        const { nid, dob } = body;
+        const { nid, dob, service: serviceName = 'Server Copy Unofficial' } = body;
 
         if (!nid || !dob) {
             return NextResponse.json({ error: 'Missing NID or Date of Birth' }, { status: 400 });
@@ -23,11 +23,17 @@ export async function POST(request: Request) {
 
         const userId = session.user.id;
 
-        // Fetch dynamic fee for "Server Copy Unofficial"
-        const service = await prisma.service.findUnique({
-            where: { name: 'Server Copy Unofficial' }
+        // Fetch dynamic fee for the specific service
+        const serviceData = await prisma.service.findUnique({
+            where: { name: serviceName }
         });
-        const serviceFee = service?.fee || 20; // Fallback to 20 only if service missing
+
+        // Use fetched fee, or fallback (20 for Server Copy, maybe different for others, but let's stick to DB source)
+        const serviceFee = serviceData?.fee ?? 20;
+
+        if (!serviceData) {
+            console.warn(`Service "${serviceName}" not found in DB, using fallback fee.`);
+        }
 
         // Start transaction
         const result = await prisma.$transaction(async (tx) => {
@@ -56,8 +62,9 @@ export async function POST(request: Request) {
                     nid,
                     dob: new Date(dob),
                     userId: user.id,
-                    fee: serviceFee, // Now enabled since schema has the column
-                    status: 'PROCESSING', // Balance deducted
+                    fee: serviceFee,
+                    status: 'PROCESSING',
+                    // service: serviceName // TEMPORARY: Commented out as DB schema update failed
                 },
             });
 

@@ -1,5 +1,3 @@
-'use client';
-
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, X } from 'lucide-react';
 import { useEffect } from 'react';
@@ -15,7 +13,7 @@ interface SuccessModalProps {
 export default function SuccessModal({
     isOpen,
     onClose,
-    title = 'Success!',
+    title = 'Successfully Completed!',
     message,
     serviceFee
 }: SuccessModalProps) {
@@ -41,7 +39,7 @@ export default function SuccessModal({
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                        className="fixed inset-0 bg-black/60 backdrop-blur-[2px] z-50 flex items-center justify-center p-4 transition-all"
                         onClick={onClose}
                     >
                         {/* Modal Container */}
@@ -49,75 +47,53 @@ export default function SuccessModal({
                             initial={{ scale: 0.9, opacity: 0, y: 20 }}
                             animate={{ scale: 1, opacity: 1, y: 0 }}
                             exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                            transition={{ type: 'spring', duration: 0.5 }}
-                            className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden relative"
+                            transition={{ type: 'spring', duration: 0.5, bounce: 0.3 }}
+                            className="bg-white w-full max-w-[400px] rounded-[32px] shadow-2xl overflow-hidden relative"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            {/* Decorative Top Pattern */}
-                            <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-br from-green-400 to-emerald-600 opacity-10 rounded-b-[50%]" />
-
-                            <div className="p-8 pt-12 flex flex-col items-center text-center relative z-10">
-                                {/* Success Icon Animation */}
-                                <div className="mb-6 relative">
-                                    <motion.div
-                                        initial={{ scale: 0 }}
-                                        animate={{ scale: 1 }}
-                                        transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
-                                        className="w-20 h-20 bg-gradient-to-br from-green-400 to-emerald-600 rounded-full flex items-center justify-center text-white shadow-lg shadow-green-200"
-                                    >
-                                        <Check className="w-10 h-10 stroke-[3]" />
-                                    </motion.div>
-
-                                    {/* Ripple Effect */}
-                                    <motion.div
-                                        initial={{ scale: 0.8, opacity: 0.5 }}
-                                        animate={{ scale: 1.5, opacity: 0 }}
-                                        transition={{ duration: 1.5, repeat: Infinity }}
-                                        className="absolute inset-0 bg-green-400 rounded-full -z-10"
-                                    />
-                                </div>
-
-                                <motion.h2
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.3 }}
-                                    className="text-2xl font-bold text-slate-800 mb-2"
-                                >
-                                    {title}
-                                </motion.h2>
-
-                                <motion.p
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.4 }}
-                                    className="text-slate-500 mb-6 px-4"
-                                >
-                                    {message}
-                                    {serviceFee && (
-                                        <span className="block mt-2 font-medium text-emerald-600 bg-emerald-50 py-1 px-3 rounded-full text-sm inline-block">
-                                            Fee deducted: {serviceFee}
-                                        </span>
-                                    )}
-                                </motion.p>
-
-                                <motion.button
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.5 }}
-                                    onClick={onClose}
-                                    className="w-full py-3.5 bg-slate-900 text-white rounded-xl font-bold shadow-lg hover:bg-slate-800 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
-                                >
-                                    Okay
-                                </motion.button>
-                            </div>
-
-                            {/* Close Button Top Right */}
+                            {/* Close Button */}
                             <button
                                 onClick={onClose}
-                                className="absolute top-4 right-4 p-2 text-slate-400 hover:bg-slate-100 rounded-full transition"
+                                className="absolute top-5 right-5 text-slate-300 hover:text-slate-500 transition-colors"
                             >
                                 <X className="w-5 h-5" />
                             </button>
+
+                            <div className="p-8 pt-10 flex flex-col items-center text-center">
+                                {/* Success Icon with Halo */}
+                                <div className="mb-6 relative">
+                                    <div className="w-24 h-24 bg-green-50 rounded-full flex items-center justify-center">
+                                        <div className="w-16 h-16 bg-[#00C988] rounded-full flex items-center justify-center shadow-lg shadow-green-200">
+                                            <Check className="w-8 h-8 text-white stroke-[3]" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Title */}
+                                <h2 className="text-xl font-bold text-[#1e293b] mb-2 tracking-tight">
+                                    {title}
+                                </h2>
+
+                                {/* Message */}
+                                <p className="text-slate-500 mb-6 text-[15px] leading-relaxed max-w-[280px]">
+                                    {message}
+                                </p>
+
+                                {/* Fee Badge */}
+                                {serviceFee && (
+                                    <div className="mb-8 bg-green-50 text-[#00C988] px-4 py-1.5 rounded-full text-sm font-bold">
+                                        Fee deducted: {serviceFee}
+                                    </div>
+                                )}
+
+                                {/* Action Button */}
+                                <button
+                                    onClick={onClose}
+                                    className="w-full py-3.5 bg-[#0f172a] text-white rounded-xl font-bold text-sm tracking-wide hover:bg-slate-800 transition-all active:scale-[0.98] shadow-lg"
+                                >
+                                    Okay
+                                </button>
+                            </div>
                         </motion.div>
                     </motion.div>
                 </>

@@ -1,6 +1,5 @@
-'use client';
-
 import { X, CheckCircle, AlertOctagon, Info } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface MessageModalProps {
     isOpen: boolean;
@@ -15,38 +14,84 @@ export default function MessageModal({ isOpen, onClose, title, message, type = '
 
     const getIcon = () => {
         switch (type) {
-            case 'success': return <div className="w-12 h-12 rounded-full bg-green-100 text-green-600 flex items-center justify-center mb-4"><CheckCircle className="w-6 h-6" /></div>;
-            case 'error': return <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-4"><AlertOctagon className="w-6 h-6" /></div>;
-            default: return <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mb-4"><Info className="w-6 h-6" /></div>;
+            case 'success': return (
+                <div className="w-24 h-24 bg-green-50 rounded-full flex items-center justify-center mb-6">
+                    <div className="w-16 h-16 bg-[#00C988] rounded-full flex items-center justify-center shadow-lg shadow-green-200">
+                        <CheckCircle className="w-8 h-8 text-white stroke-[2.5]" />
+                    </div>
+                </div>
+            );
+            case 'error': return (
+                <div className="w-24 h-24 bg-red-50 rounded-full flex items-center justify-center mb-6">
+                    <div className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center shadow-lg shadow-red-200">
+                        <AlertOctagon className="w-8 h-8 text-white stroke-[2.5]" />
+                    </div>
+                </div>
+            );
+            default: return (
+                <div className="w-24 h-24 bg-blue-50 rounded-full flex items-center justify-center mb-6">
+                    <div className="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center shadow-lg shadow-blue-200">
+                        <Info className="w-8 h-8 text-white stroke-[2.5]" />
+                    </div>
+                </div>
+            );
         }
     };
 
+    const getButtonColor = () => {
+        // Uniform dark button for all types as per "Okay" design, or keep semantic?
+        // User asked for "same to same ai image style" which had dark button.
+        // Let's use the dark button for consistency, it looks more premium.
+        return "bg-[#0f172a] hover:bg-slate-800";
+    };
+
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 relative animate-in zoom-in-95 duration-200">
-                <button
+        <AnimatePresence>
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
                     onClick={onClose}
-                    className="absolute right-4 top-4 p-2 hover:bg-slate-100 rounded-full transition text-slate-400 hover:text-slate-600"
+                />
+
+                <motion.div
+                    initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                    exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                    transition={{ type: 'spring', duration: 0.5, bounce: 0.3 }}
+                    className="bg-white w-full max-w-[400px] rounded-[32px] shadow-2xl overflow-hidden relative z-10 p-8 pt-10"
+                    onClick={(e) => e.stopPropagation()}
                 >
-                    <X className="w-5 h-5" />
-                </button>
-
-                <div className="flex flex-col items-center text-center">
-                    {getIcon()}
-                    <h3 className="text-lg font-bold text-slate-900 mb-2">{title}</h3>
-                    <p className="text-slate-500 mb-6 leading-relaxed">{message}</p>
-
+                    {/* Close Button */}
                     <button
                         onClick={onClose}
-                        className={`w-full py-3 rounded-xl font-bold text-white transition transform active:scale-[0.98] ${type === 'success' ? 'bg-green-600 hover:bg-green-700 shadow-lg shadow-green-500/20' :
-                                type === 'error' ? 'bg-red-600 hover:bg-red-700 shadow-lg shadow-red-500/20' :
-                                    'bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20'
-                            }`}
+                        className="absolute top-5 right-5 text-slate-300 hover:text-slate-500 transition-colors"
                     >
-                        OK
+                        <X className="w-5 h-5" />
                     </button>
-                </div>
+
+                    <div className="flex flex-col items-center text-center">
+                        {getIcon()}
+
+                        <h3 className="text-xl font-bold text-[#1e293b] mb-2 tracking-tight">
+                            {title}
+                        </h3>
+
+                        <p className="text-slate-500 mb-8 text-[15px] leading-relaxed max-w-[280px]">
+                            {message}
+                        </p>
+
+                        <button
+                            onClick={onClose}
+                            className={`w-full py-3.5 text-white rounded-xl font-bold text-sm tracking-wide transition-all active:scale-[0.98] shadow-lg ${getButtonColor()}`}
+                        >
+                            Okay
+                        </button>
+                    </div>
+                </motion.div>
             </div>
-        </div>
+        </AnimatePresence>
     );
 }

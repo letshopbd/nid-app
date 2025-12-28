@@ -61,7 +61,7 @@ export default function DashboardPage() {
     // Services to display (English Names)
     const knownServices = [
         { name: 'Sign Copy NID', link: '/dashboard/services/sign-copy' },
-        { name: 'Birth Registration', link: '#' },
+        { name: 'Birth Registration', link: '/dashboard/services/birth-registration' },
         { name: 'Server Copy (Unofficial)', link: '/dashboard/services/nid' },
         { name: 'Sign to Server Copy', link: '/dashboard/services/sign-to-server' },
         { name: 'TIN Certificate', link: '/dashboard/services/tin-certificate' },
@@ -122,7 +122,8 @@ export default function DashboardPage() {
                     const found = Array.isArray(serviceData) ? serviceData.find((d: any) => d.name === engName || d.name === known.name) : null;
                     return {
                         ...known,
-                        status: found ? found.status : 'Active'
+                        status: found ? found.status : 'Active',
+                        link: found?.link && found.link !== '#' ? found.link : known.link
                     };
                 });
                 setServices(mergedCorrectly);

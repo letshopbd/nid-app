@@ -19,6 +19,15 @@ const formatBanglaDate = (dateString: string) => {
     return `${day} ${month}, ${year}`;
 };
 
+// Helper to format date as YYYY-MM-DD
+const formatDateISO = (dateString: string) => {
+    const d = new Date(dateString);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 // Helper to get Bangla label and color for status
 const getStatusBadge = (status: string) => {
     switch (status) {
@@ -42,6 +51,7 @@ const getStatusBadge = (status: string) => {
 interface Request {
     id: string;
     nid: string;
+    dob: string;
     status: string;
     createdAt: string;
     pdfPath?: string | null;
@@ -92,6 +102,7 @@ export default function MyFilesPage() {
                                 <th className="p-4 pl-6">Serial</th>
                                 <th className="p-4">Type</th>
                                 <th className="p-4">NID/BRN Number</th>
+                                <th className="p-4">Date of Birth</th>
                                 <th className="p-4">Created Date</th>
                                 <th className="p-4 text-center">Action / Status</th>
                             </tr>
@@ -111,6 +122,9 @@ export default function MyFilesPage() {
                                         </td>
                                         <td className="p-4 font-mono font-medium text-slate-700">
                                             {toBanglaDigit(req.nid)}
+                                        </td>
+                                        <td className="p-4 text-sm font-mono font-medium text-slate-700">
+                                            {formatDateISO(req.dob)}
                                         </td>
                                         <td className="p-4 text-sm text-slate-600">
                                             {formatBanglaDate(req.createdAt)}
@@ -147,7 +161,7 @@ export default function MyFilesPage() {
                             })}
                             {requests.length === 0 && (
                                 <tr>
-                                    <td colSpan={5} className="p-12 text-center text-slate-400">
+                                    <td colSpan={6} className="p-12 text-center text-slate-400">
                                         No files found. Request a new service.
                                     </td>
                                 </tr>
@@ -182,14 +196,25 @@ export default function MyFilesPage() {
                                     <span className="text-xs text-slate-400 font-medium uppercase tracking-wide">Type</span>
                                     <h3 className="font-bold text-slate-800 text-base mt-0.5">Server Copy (Unofficial)</h3>
                                 </div>
-                                <div>
-                                    <span className="text-xs text-slate-400 font-medium uppercase tracking-wide">NID Number</span>
-                                    <div className="flex items-center gap-2 mt-0.5">
-                                        <div className="font-mono font-bold text-slate-700 tracking-wide text-lg bg-slate-50 px-2 py-1 rounded border border-slate-100">
-                                            {toBanglaDigit(req.nid)}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <span className="text-xs text-slate-400 font-medium uppercase tracking-wide">NID Number</span>
+                                        <div className="flex items-center gap-2 mt-0.5">
+                                            <div className="font-mono font-bold text-slate-700 tracking-wide text-lg bg-slate-50 px-2 py-1 rounded border border-slate-100">
+                                                {toBanglaDigit(req.nid)}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <span className="text-xs text-slate-400 font-medium uppercase tracking-wide">Date of Birth</span>
+                                        <div className="flex items-center gap-2 mt-0.5">
+                                            <div className="font-mono font-medium text-slate-700 text-base">
+                                                {formatDateISO(req.dob)}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
+
                             </div>
 
                             {/* Status & Actions */}

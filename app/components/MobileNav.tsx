@@ -56,7 +56,7 @@ export default function MobileNav({ type, userCounts = { pendingOrders: 0, pendi
         { name: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
         { name: 'Order Now', icon: ShoppingCart, href: '/dashboard/order' },
         { name: 'Sign Copy NID', icon: FileText, href: '/dashboard/services/sign-copy' },
-        { name: 'Birth Registration', icon: FileClock, href: '#' },
+        { name: 'Birth Registration', icon: FileClock, href: '/dashboard/services/birth-registration' },
         { name: 'Server Copy (Unofficial)', icon: Upload, href: '/dashboard/services/nid' },
         { name: 'Sign to Server Copy', icon: FileText, href: '/dashboard/services/sign-to-server' },
         { name: 'TIN Certificate', icon: Calculator, href: '/dashboard/services/tin-certificate' },

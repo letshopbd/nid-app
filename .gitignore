@@ -41,3 +41,8 @@ yarn-error.log*
 next-env.d.ts
 
 /app/generated/prisma
+
+# debug artifacts
+debug_verify_*.pdf
+debug_verify_*.png
+debug_verify_*.html

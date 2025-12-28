@@ -38,6 +38,7 @@ model Request {
   transactionId String?
   createdAt     DateTime @default(now())
   fee           Float    @default(0.0)
+  service       String   @default("Server Copy Unofficial")
   userId        String?
   user          User?    @relation(fields: [userId], references: [id])
 

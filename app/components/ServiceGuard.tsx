@@ -53,6 +53,7 @@ export default function ServiceGuard({ serviceName, children }: ServiceGuardProp
         // Mapping for Bengali Service Names
         const englishNamesMap: Record<string, string> = {
             'Sign Copy to NID': 'Sign Copy to NID',
+            'Birth Registration': 'Birth Registration',
             'Make Birth Reg': 'Birth Registration',
             'Server Copy Unofficial': 'Server Copy (Unofficial)',
             'Sign to Server Copy': 'Sign to Server Copy',

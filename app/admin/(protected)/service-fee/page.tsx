@@ -20,7 +20,7 @@ export default function ServiceFeePage() {
     // Initial list of services
     const knownServices = [
         { name: 'Sign Copy to NID', link: '/dashboard/services/sign-copy', fee: 0 },
-        { name: 'Make Birth Reg', link: '#', fee: 0 },
+        { name: 'Birth Registration', link: '/dashboard/services/birth-registration', fee: 0 },
         { name: 'Server Copy Unofficial', link: '/dashboard/services/nid', fee: 20 },
         { name: 'Sign to Server Copy', link: '/dashboard/services/sign-to-server', fee: 0 },
         { name: 'Tin Certificate', link: '/dashboard/services/tin-certificate', fee: 0 },

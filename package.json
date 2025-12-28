@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "@sparticuz/chromium-min": "^143.0.0",
     "@uploadthing/react": "^7.3.3",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
@@ -18,7 +19,9 @@
     "next": "16.0.10",
     "next-auth": "^5.0.0-beta.30",
     "next-connect": "^1.0.0",
+    "pdf-lib": "^1.17.1",
     "prisma": "^5.22.0",
+    "puppeteer-core": "^24.34.0",
     "react": "19.2.1",
     "react-dom": "19.2.1",
     "sonner": "^2.0.7",
