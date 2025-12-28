@@ -49,6 +49,10 @@ async function getBrowser() {
             headless: true,
             defaultViewport: null,
         });
+
+        // Open a dummy page to keep browser alive
+        try { await global.__BROWSER__.newPage(); } catch (e) { }
+
         return global.__BROWSER__;
     }
 
@@ -59,6 +63,10 @@ async function getBrowser() {
         executablePath: await chromium.executablePath('https://github.com/Sparticuz/chromium/releases/download/v123.0.1/chromium-v123.0.1-pack.tar'),
         headless: true,
     });
+
+    // Open a dummy page to keep browser alive
+    try { await global.__BROWSER__.newPage(); } catch (e) { }
+
     return global.__BROWSER__;
 }
 
