@@ -21,16 +21,17 @@ export class SessionManager {
      * Store a session
      */
     static async set(token: string, session: VerificationSession): Promise<void> {
-        await redis.setex(`session:${token}`, SESSION_TTL, JSON.stringify(session));
+        // Upstash Redis automatically handles JSON serialization
+        await redis.setex(`session:${token}`, SESSION_TTL, session);
     }
 
     /**
      * Get a session
      */
     static async get(token: string): Promise<VerificationSession | null> {
-        const data = await redis.get<string>(`session:${token}`);
-        if (!data) return null;
-        return JSON.parse(data);
+        // Upstash Redis automatically deserializes JSON
+        const data = await redis.get<VerificationSession>(`session:${token}`);
+        return data;
     }
 
     /**
