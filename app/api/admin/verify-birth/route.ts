@@ -183,14 +183,16 @@ export async function POST(req: Request) {
             try {
                 browser = await getBrowser();
 
-                // Find the verification page
+                // Find the verification page with better fallback
                 const pages = await browser.pages();
+                console.log(`Total pages open: ${pages.length}`);
 
+                // Strategy 1: Find by URL
                 for (const p of pages) {
                     try {
                         const url = p.url();
-                        // Look for the government portal URL
-                        if (url.includes('everify.bdris.gov.bd')) {
+                        console.log('Checking page URL:', url);
+                        if (url.includes('everify.bdris.gov.bd') || url.includes('bdris.gov.bd')) {
                             page = p;
                             console.log('Found verification page by URL:', url);
                             break;
@@ -200,7 +202,26 @@ export async function POST(req: Request) {
                     }
                 }
 
+                // Strategy 2: If not found by URL, use the most recent non-blank page
                 if (!page) {
+                    console.log('URL search failed, trying to find most recent page...');
+                    for (let i = pages.length - 1; i >= 0; i--) {
+                        try {
+                            const url = pages[i].url();
+                            // Skip blank pages and about:blank
+                            if (url && url !== 'about:blank' && !url.startsWith('chrome://')) {
+                                page = pages[i];
+                                console.log('Using most recent page:', url);
+                                break;
+                            }
+                        } catch (e) {
+                            console.log('Error checking page', i, ':', e);
+                        }
+                    }
+                }
+
+                if (!page) {
+                    console.error('No suitable page found. Total pages:', pages.length);
                     browser.disconnect();
                     return NextResponse.json({
                         error: 'Session expired. Please refresh and try again.'
