@@ -148,7 +148,8 @@ export async function POST(req: Request) {
                     (window as any)._VERIFICATION_PAGE = Date.now();
                 });
 
-                browser.disconnect();
+                // DON'T disconnect - keep the connection alive for VERIFY step
+                // browser.disconnect();
 
                 return NextResponse.json({
                     success: true,
