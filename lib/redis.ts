@@ -6,10 +6,10 @@ const redis = new Redis({
     token: process.env.UPSTASH_REDIS_REST_TOKEN!,
 });
 
-// Session interface
+// Session interface - stores form data for verification
 export interface VerificationSession {
-    wsEndpoint: string;
-    pageUrl: string;
+    nid: string;
+    dob: string;
     timestamp: number;
 }
 
