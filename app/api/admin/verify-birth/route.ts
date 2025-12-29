@@ -296,6 +296,7 @@ export async function POST(req: Request) {
                 }
 
                 // Strategy 2: STRICT validation - ensure names are NOT "WE"
+                console.log('Waiting for names to load (this may take 30-40 seconds)...');
                 try {
                     await page.waitForFunction(
                         () => {
@@ -345,11 +346,13 @@ export async function POST(req: Request) {
 
                             return isValid;
                         },
-                        { timeout: 25000, polling: 1000 }
+                        { timeout: 40000, polling: 1500 }
                     );
                     console.log('Data validation passed - real names confirmed');
                 } catch (e) {
-                    console.log('Data validation timeout - WARNING: Names may still be WE');
+                    // CRITICAL: If names don't load, FAIL the verification
+                    console.error('Data validation FAILED - names still showing WE after 40 seconds');
+                    throw new Error('Data loading timeout. The government portal is responding slowly. Please try again in a few minutes.');
                 }
 
                 // Additional safety wait
