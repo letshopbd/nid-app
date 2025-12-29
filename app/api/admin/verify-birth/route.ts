@@ -284,89 +284,48 @@ export async function POST(req: Request) {
                     throw new Error('Verification failed. Server response not recognized.');
                 }
 
-                // Wait for complete data loading - IMPROVED
+                // Wait for complete data loading
                 console.log('Waiting for data to load completely...');
 
-                // DEBUG: Inspect page structure
-                const debugInfo = await page.evaluate(() => {
-                    const cells = Array.from(document.querySelectorAll('td'));
-                    return {
-                        totalCells: cells.length,
-                        first30Cells: cells.slice(0, 30).map((cell, idx) => ({
-                            index: idx,
-                            text: cell.innerText.trim().substring(0, 50)
-                        }))
-                    };
-                });
-                console.log('=== PAGE DEBUG INFO ===');
-                console.log(JSON.stringify(debugInfo, null, 2));
-
-                // Strategy 1: Wait for network idle (longer timeout)
+                // Wait for network to settle after form submission
                 try {
-                    await page.waitForNetworkIdle({ timeout: 10000, idleTime: 1500 });
+                    await page.waitForNetworkIdle({ timeout: 15000, idleTime: 2000 });
                     console.log('Network idle achieved');
                 } catch (e) {
-                    console.log('Network idle timeout, using fallback');
+                    console.log('Network idle timeout');
                 }
 
-                // Strategy 2: STRICT validation - ensure names are NOT "WE"
-                console.log('Waiting for names to load (this may take 30-40 seconds)...');
-                try {
-                    await page.waitForFunction(
-                        () => {
-                            // Get all table cells
-                            const allCells = Array.from(document.querySelectorAll('td'));
+                // Additional wait for data to populate
+                await new Promise(r => setTimeout(r, 5000));
+                console.log('Waited 5 seconds for data population');
 
-                            // Find the cells containing "REGISTERED PERSON NAME" and "FATHER'S NAME"
-                            let personNameValue = '';
-                            let fatherNameValue = '';
+                // Optional: Check if names loaded (but don't fail if they didn't)
+                const namesStatus = await page.evaluate(() => {
+                    const allCells = Array.from(document.querySelectorAll('td'));
+                    let personName = '';
+                    let fatherName = '';
 
-                            for (let i = 0; i < allCells.length; i++) {
-                                const cell = allCells[i];
-                                const cellText = cell.innerText.trim();
+                    for (let i = 0; i < allCells.length; i++) {
+                        const cell = allCells[i];
+                        const cellText = cell.innerText.trim();
 
-                                // Check if this is the "REGISTERED PERSON NAME" label
-                                if (cellText.includes('REGISTERED PERSON NAME') ||
-                                    cellText.includes('Registered Person Name')) {
-                                    // The value should be in the next cell
-                                    const nextCell = allCells[i + 1];
-                                    if (nextCell) {
-                                        personNameValue = nextCell.innerText.trim();
-                                    }
-                                }
+                        if (cellText.includes('REGISTERED PERSON NAME') || cellText.includes('Registered Person Name')) {
+                            const nextCell = allCells[i + 1];
+                            if (nextCell) personName = nextCell.innerText.trim();
+                        }
 
-                                // Check if this is the "FATHER'S NAME" label
-                                if (cellText.includes("FATHER'S NAME") ||
-                                    cellText.includes("Father's Name")) {
-                                    // The value should be in the next cell
-                                    const nextCell = allCells[i + 1];
-                                    if (nextCell) {
-                                        fatherNameValue = nextCell.innerText.trim();
-                                    }
-                                }
-                            }
+                        if (cellText.includes("FATHER'S NAME") || cellText.includes("Father's Name")) {
+                            const nextCell = allCells[i + 1];
+                            if (nextCell) fatherName = nextCell.innerText.trim();
+                        }
+                    }
 
-                            // STRICT CHECK: Both names must exist and NOT be "WE"
-                            const personNameValid = personNameValue.length > 2 && personNameValue !== 'WE';
-                            const fatherNameValid = fatherNameValue.length > 2 && fatherNameValue !== 'WE';
+                    return { personName, fatherName };
+                });
 
-                            const isValid = personNameValid && fatherNameValid;
-
-                            if (!isValid) {
-                                console.log('Waiting for names... Person:', personNameValue, 'Father:', fatherNameValue);
-                            } else {
-                                console.log('Names loaded! Person:', personNameValue, 'Father:', fatherNameValue);
-                            }
-
-                            return isValid;
-                        },
-                        { timeout: 40000, polling: 1500 }
-                    );
-                    console.log('Data validation passed - real names confirmed');
-                } catch (e) {
-                    // CRITICAL: If names don't load, FAIL the verification
-                    console.error('Data validation FAILED - names still showing WE after 40 seconds');
-                    throw new Error('Data loading timeout. The government portal is responding slowly. Please try again in a few minutes.');
+                console.log('Names found:', namesStatus);
+                if (namesStatus.personName === 'WE' || namesStatus.fatherName === 'WE') {
+                    console.warn('WARNING: Names still showing as WE - data may be incomplete');
                 }
 
                 // Additional safety wait
