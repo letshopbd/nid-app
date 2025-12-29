@@ -324,27 +324,32 @@ export async function POST(req: Request) {
                     throw new Error('Verification failed. Server response not recognized.');
                 }
 
-                // Wait for Bengali characters to appear (data loaded)
-                console.log('Waiting for Bengali text to load...');
+                // Wait for data to load - check for Bengali characters OR any substantial text
+                console.log('Waiting for data to load...');
                 try {
                     await page.waitForFunction(
                         () => {
                             const cells = Array.from(document.querySelectorAll('td'));
-                            // Check for Bengali Unicode characters
+                            // Check for Bengali Unicode characters OR substantial English text
                             const hasBengali = cells.some(cell =>
                                 /[\u0980-\u09FF]/.test(cell.innerText)
                             );
-                            return hasBengali;
+                            const hasSubstantialText = cells.some(cell => {
+                                const text = cell.innerText.trim();
+                                // Text longer than 5 chars and not "WE"
+                                return text.length > 5 && text !== 'WE';
+                            });
+                            return hasBengali || hasSubstantialText;
                         },
-                        { timeout: 30000, polling: 2000 }
+                        { timeout: 15000, polling: 2000 }
                     );
-                    console.log('Bengali text detected - data loaded!');
+                    console.log('Data loaded successfully!');
                 } catch (e) {
-                    console.warn('Bengali text detection timeout - proceeding anyway');
+                    console.warn('Data detection timeout - proceeding with current state');
                 }
 
                 // Additional wait for rendering
-                await new Promise(r => setTimeout(r, 3000));
+                await new Promise(r => setTimeout(r, 2000));
 
                 // Generate PDF
                 await page.emulateMediaType('screen');
