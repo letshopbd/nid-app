@@ -4,36 +4,14 @@ import chromium from '@sparticuz/chromium-min';
 import fs from 'fs';
 import path from 'path';
 import { randomBytes } from 'crypto';
+import { SessionManager, type VerificationSession } from '@/lib/redis';
 
 // Declare global types
 declare global {
     var __BROWSER_WS__: string | undefined;
 }
 
-// Session storage
-interface VerificationSession {
-    wsEndpoint: string;
-    pageUrl: string;
-    timestamp: number;
-}
-
-const activeSessions = new Map<string, VerificationSession>();
-
-// Cleanup expired sessions (older than 5 minutes)
-function cleanupExpiredSessions() {
-    const now = Date.now();
-    const FIVE_MINUTES = 5 * 60 * 1000;
-
-    for (const [token, session] of activeSessions.entries()) {
-        if (now - session.timestamp > FIVE_MINUTES) {
-            console.log('Removing expired session:', token);
-            activeSessions.delete(token);
-        }
-    }
-}
-
-// Run cleanup every minute
-setInterval(cleanupExpiredSessions, 60 * 1000);
+// Session storage now handled by Redis (see lib/redis.ts)
 
 // Generate session token
 function generateSessionToken(): string {
@@ -168,17 +146,17 @@ export async function POST(req: Request) {
                     }
                 }
 
-                // Generate session token and store session
+                // Generate session token and store session in Redis
                 const token = generateSessionToken();
                 const pageUrl = page.url();
 
-                activeSessions.set(token, {
+                await SessionManager.set(token, {
                     wsEndpoint: browser.wsEndpoint(),
                     pageUrl: pageUrl,
                     timestamp: Date.now()
                 });
 
-                console.log('Created session:', token, 'Total sessions:', activeSessions.size);
+                console.log('Created session in Redis:', token);
 
                 // DON'T disconnect - keep browser alive
                 // DON'T close page - we need it for VERIFY
@@ -211,8 +189,8 @@ export async function POST(req: Request) {
                 return NextResponse.json({ error: 'Missing required data' }, { status: 400 });
             }
 
-            // Look up session
-            const session = activeSessions.get(sessionToken);
+            // Look up session from Redis
+            const session = await SessionManager.get(sessionToken);
             if (!session) {
                 return NextResponse.json({
                     error: 'Session expired or invalid. Please refresh and try again.'
@@ -222,7 +200,7 @@ export async function POST(req: Request) {
             // Check session age (5 minutes max)
             const sessionAge = Date.now() - session.timestamp;
             if (sessionAge > 5 * 60 * 1000) {
-                activeSessions.delete(sessionToken);
+                await SessionManager.delete(sessionToken);
                 return NextResponse.json({
                     error: 'Session expired. Please refresh and try again.'
                 }, { status: 400 });
@@ -236,7 +214,7 @@ export async function POST(req: Request) {
                 browser = await puppeteer.connect({ browserWSEndpoint: session.wsEndpoint });
 
                 if (!browser.isConnected()) {
-                    activeSessions.delete(sessionToken);
+                    await SessionManager.delete(sessionToken);
                     return NextResponse.json({
                         error: 'Browser connection lost. Please refresh and try again.'
                     }, { status: 400 });
@@ -262,7 +240,7 @@ export async function POST(req: Request) {
                 }
 
                 if (!page) {
-                    activeSessions.delete(sessionToken);
+                    await SessionManager.delete(sessionToken);
                     browser.disconnect();
                     return NextResponse.json({
                         error: 'Verification page not found. Please refresh and try again.'
