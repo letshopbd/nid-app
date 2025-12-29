@@ -384,7 +384,7 @@ export async function POST(req: Request) {
             } catch (e: any) {
                 if (page) await page.close().catch(() => { });
                 if (browser) browser.disconnect();
-                activeSessions.delete(sessionToken);
+                await SessionManager.delete(sessionToken);
                 console.error('Verify Step Error:', e);
                 return NextResponse.json({
                     error: e.message || 'Verification Failed'
