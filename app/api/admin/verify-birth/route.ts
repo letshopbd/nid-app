@@ -287,6 +287,20 @@ export async function POST(req: Request) {
                 // Wait for complete data loading - IMPROVED
                 console.log('Waiting for data to load completely...');
 
+                // DEBUG: Inspect page structure
+                const debugInfo = await page.evaluate(() => {
+                    const cells = Array.from(document.querySelectorAll('td'));
+                    return {
+                        totalCells: cells.length,
+                        first30Cells: cells.slice(0, 30).map((cell, idx) => ({
+                            index: idx,
+                            text: cell.innerText.trim().substring(0, 50)
+                        }))
+                    };
+                });
+                console.log('=== PAGE DEBUG INFO ===');
+                console.log(JSON.stringify(debugInfo, null, 2));
+
                 // Strategy 1: Wait for network idle (longer timeout)
                 try {
                     await page.waitForNetworkIdle({ timeout: 10000, idleTime: 1500 });
