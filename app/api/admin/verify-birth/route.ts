@@ -273,39 +273,61 @@ export async function POST(req: Request) {
                     console.log('Network idle timeout, using fallback');
                 }
 
-                // Strategy 2: Wait for SPECIFIC name fields to load
+                // Strategy 2: STRICT validation - ensure names are NOT "WE"
                 try {
                     await page.waitForFunction(
                         () => {
                             // Get all table cells
                             const allCells = Array.from(document.querySelectorAll('td'));
 
-                            // Look for cells with actual Bengali/English names (not placeholders)
-                            const nameFields = allCells.filter(cell => {
-                                const text = cell.innerText.trim();
-                                // Valid name: length > 3, not "WE", not single letters
-                                return text.length > 3 &&
-                                    text !== 'WE' &&
-                                    !text.match(/^[A-Z]{1,2}$/) &&
-                                    !text.includes('Name') && // Exclude labels
-                                    !text.includes('Date') &&
-                                    !text.includes('Number');
-                            });
+                            // Find the cells containing "REGISTERED PERSON NAME" and "FATHER'S NAME"
+                            let personNameValue = '';
+                            let fatherNameValue = '';
 
-                            // We need at least 2 name fields (person + father)
-                            const hasEnoughNames = nameFields.length >= 2;
+                            for (let i = 0; i < allCells.length; i++) {
+                                const cell = allCells[i];
+                                const cellText = cell.innerText.trim();
 
-                            if (hasEnoughNames) {
-                                console.log('Found', nameFields.length, 'name fields');
+                                // Check if this is the "REGISTERED PERSON NAME" label
+                                if (cellText.includes('REGISTERED PERSON NAME') ||
+                                    cellText.includes('Registered Person Name')) {
+                                    // The value should be in the next cell
+                                    const nextCell = allCells[i + 1];
+                                    if (nextCell) {
+                                        personNameValue = nextCell.innerText.trim();
+                                    }
+                                }
+
+                                // Check if this is the "FATHER'S NAME" label
+                                if (cellText.includes("FATHER'S NAME") ||
+                                    cellText.includes("Father's Name")) {
+                                    // The value should be in the next cell
+                                    const nextCell = allCells[i + 1];
+                                    if (nextCell) {
+                                        fatherNameValue = nextCell.innerText.trim();
+                                    }
+                                }
                             }
 
-                            return hasEnoughNames;
+                            // STRICT CHECK: Both names must exist and NOT be "WE"
+                            const personNameValid = personNameValue.length > 2 && personNameValue !== 'WE';
+                            const fatherNameValid = fatherNameValue.length > 2 && fatherNameValue !== 'WE';
+
+                            const isValid = personNameValid && fatherNameValid;
+
+                            if (!isValid) {
+                                console.log('Waiting for names... Person:', personNameValue, 'Father:', fatherNameValue);
+                            } else {
+                                console.log('Names loaded! Person:', personNameValue, 'Father:', fatherNameValue);
+                            }
+
+                            return isValid;
                         },
-                        { timeout: 20000, polling: 1000 }
+                        { timeout: 25000, polling: 1000 }
                     );
-                    console.log('Data validation passed - names loaded');
+                    console.log('Data validation passed - real names confirmed');
                 } catch (e) {
-                    console.log('Data validation timeout - proceeding anyway');
+                    console.log('Data validation timeout - WARNING: Names may still be WE');
                 }
 
                 // Additional safety wait
