@@ -369,8 +369,8 @@ export async function POST(req: Request) {
                 const pdfBytes = await pdfDoc.save();
                 const pdfBase64 = Buffer.from(pdfBytes).toString('base64');
 
-                // Cleanup: Remove session and close page
-                activeSessions.delete(sessionToken);
+                // Cleanup: Remove session from Redis and close page
+                await SessionManager.delete(sessionToken);
                 await page.close();
                 browser.disconnect();
 
