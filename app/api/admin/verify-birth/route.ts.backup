@@ -1,12 +1,43 @@
 import { NextResponse } from 'next/server';
 import puppeteer from 'puppeteer-core';
 import chromium from '@sparticuz/chromium-min';
+import fs from 'fs';
+import path from 'path';
 import { randomBytes } from 'crypto';
 import { SessionManager, type VerificationSession } from '@/lib/redis';
+
+// Declare global types
+declare global {
+    var __BROWSER_WS__: string | undefined;
+}
+
+// Session storage now handled by Redis (see lib/redis.ts)
 
 // Generate session token
 function generateSessionToken(): string {
     return randomBytes(32).toString('hex');
+}
+
+// Session File Path
+const SESSION_FILE = path.join(process.cwd(), '.browser-session');
+
+function saveSession(wsEndpoint: string) {
+    try {
+        fs.writeFileSync(SESSION_FILE, wsEndpoint, 'utf-8');
+    } catch (e) {
+        console.error('Failed to save session:', e);
+    }
+}
+
+function loadSession(): string | null {
+    try {
+        if (fs.existsSync(SESSION_FILE)) {
+            return fs.readFileSync(SESSION_FILE, 'utf-8').trim();
+        }
+    } catch (e) {
+        console.error('Failed to load session:', e);
+    }
+    return null;
 }
 
 // Helper to launch browser
@@ -28,6 +59,38 @@ async function launchBrowser() {
     });
 }
 
+// Get Connected Browser
+async function getBrowser() {
+    let wsEndpoint = global.__BROWSER_WS__;
+
+    if (!wsEndpoint) {
+        wsEndpoint = loadSession() || undefined;
+        if (wsEndpoint) console.log('Recovered session from file');
+    }
+
+    if (wsEndpoint) {
+        try {
+            const browser = await puppeteer.connect({ browserWSEndpoint: wsEndpoint });
+            if (browser.isConnected()) {
+                await browser.version();
+                global.__BROWSER_WS__ = wsEndpoint;
+                return browser;
+            }
+        } catch (e) {
+            console.log('Session invalid. Clearing...');
+            global.__BROWSER_WS__ = undefined;
+            try { fs.unlinkSync(SESSION_FILE); } catch (err) { }
+        }
+    }
+
+    const browser = await launchBrowser();
+    const newEndpoint = browser.wsEndpoint();
+    global.__BROWSER_WS__ = newEndpoint;
+    saveSession(newEndpoint);
+
+    return browser;
+}
+
 export async function POST(req: Request) {
     try {
         const body = await req.json();
@@ -35,16 +98,11 @@ export async function POST(req: Request) {
 
         // --- STEP 1: FETCH CAPTCHA ---
         if (action === 'FETCH_CAPTCHA') {
-            // Require NID and DOB
-            if (!nid || !dob) {
-                return NextResponse.json({ error: 'NID and DOB required' }, { status: 400 });
-            }
-
             let browser;
             let page;
 
             try {
-                browser = await launchBrowser();
+                browser = await getBrowser();
                 page = await browser.newPage();
 
                 await page.goto('https://everify.bdris.gov.bd/', {
@@ -88,20 +146,20 @@ export async function POST(req: Request) {
                     }
                 }
 
-                // Generate session token and store NID/DOB in Redis
+                // Generate session token and store session in Redis
                 const token = generateSessionToken();
+                const pageUrl = page.url();
 
                 await SessionManager.set(token, {
-                    nid: nid,
-                    dob: dob,
+                    wsEndpoint: browser.wsEndpoint(),
+                    pageUrl: pageUrl,
                     timestamp: Date.now()
                 });
 
-                console.log('Created session in Redis with NID/DOB:', token);
+                console.log('Created session in Redis:', token);
 
-                // CLOSE browser - we'll launch fresh one for VERIFY
-                await page.close();
-                await browser.close();
+                // DON'T disconnect - keep browser alive
+                // DON'T close page - we need it for VERIFY
 
                 return NextResponse.json({
                     success: true,
@@ -111,7 +169,7 @@ export async function POST(req: Request) {
 
             } catch (e: any) {
                 if (page) await page.close().catch(() => { });
-                if (browser) await browser.close().catch(() => { });
+                if (browser) browser.disconnect();
 
                 if (e.message.includes('Node has 0 width') || e.message.includes('no dimensions')) {
                     return NextResponse.json({
@@ -127,15 +185,15 @@ export async function POST(req: Request) {
 
         // --- STEP 2: VERIFY ---
         if (action === 'VERIFY') {
-            if (!captchaAnswer || !sessionToken) {
-                return NextResponse.json({ error: 'Missing captcha answer or session token' }, { status: 400 });
+            if (!captchaAnswer || !nid || !dob || !sessionToken) {
+                return NextResponse.json({ error: 'Missing required data' }, { status: 400 });
             }
 
             // Look up session from Redis
             const session = await SessionManager.get(sessionToken);
             if (!session) {
                 return NextResponse.json({
-                    error: 'Session expired or invalid. Please click Auto Verify again.'
+                    error: 'Session expired or invalid. Please refresh and try again.'
                 }, { status: 400 });
             }
 
@@ -144,7 +202,7 @@ export async function POST(req: Request) {
             if (sessionAge > 5 * 60 * 1000) {
                 await SessionManager.delete(sessionToken);
                 return NextResponse.json({
-                    error: 'Session expired. Please click Auto Verify again.'
+                    error: 'Session expired. Please refresh and try again.'
                 }, { status: 400 });
             }
 
@@ -152,18 +210,44 @@ export async function POST(req: Request) {
             let page;
 
             try {
-                // Launch FRESH browser
-                console.log('Launching fresh browser for verification...');
-                browser = await launchBrowser();
-                page = await browser.newPage();
+                // Connect to the stored browser
+                browser = await puppeteer.connect({ browserWSEndpoint: session.wsEndpoint });
 
-                // Navigate to portal
-                await page.goto('https://everify.bdris.gov.bd/', {
-                    waitUntil: 'networkidle0',
-                    timeout: 30000
-                });
+                if (!browser.isConnected()) {
+                    await SessionManager.delete(sessionToken);
+                    return NextResponse.json({
+                        error: 'Browser connection lost. Please refresh and try again.'
+                    }, { status: 400 });
+                }
 
-                // Fill form with stored NID/DOB + captcha answer
+                // Find the page by URL
+                const pages = await browser.pages();
+                console.log(`Looking for page with URL: ${session.pageUrl}`);
+                console.log(`Total pages: ${pages.length}`);
+
+                for (const p of pages) {
+                    try {
+                        const url = p.url();
+                        console.log('Checking page:', url);
+                        if (url === session.pageUrl || url.includes('everify.bdris.gov.bd')) {
+                            page = p;
+                            console.log('Found matching page!');
+                            break;
+                        }
+                    } catch (e) {
+                        console.log('Error checking page:', e);
+                    }
+                }
+
+                if (!page) {
+                    await SessionManager.delete(sessionToken);
+                    browser.disconnect();
+                    return NextResponse.json({
+                        error: 'Verification page not found. Please refresh and try again.'
+                    }, { status: 400 });
+                }
+
+                // Fill form
                 await page.evaluate((nidValue, dobValue, captchaValue) => {
                     const ubrn = document.querySelector('#ubrn') as HTMLInputElement;
                     const birthDate = document.querySelector('#BirthDate') as HTMLInputElement;
@@ -184,7 +268,7 @@ export async function POST(req: Request) {
                         captcha.dispatchEvent(new Event('input', { bubbles: true }));
                         captcha.dispatchEvent(new Event('change', { bubbles: true }));
                     }
-                }, session.nid, session.dob, captchaAnswer);
+                }, nid, dob, captchaAnswer);
 
                 await new Promise(r => setTimeout(r, 1000));
 
@@ -285,10 +369,10 @@ export async function POST(req: Request) {
                 const pdfBytes = await pdfDoc.save();
                 const pdfBase64 = Buffer.from(pdfBytes).toString('base64');
 
-                // Cleanup: Remove session from Redis and close browser
+                // Cleanup: Remove session from Redis and close page
                 await SessionManager.delete(sessionToken);
                 await page.close();
-                await browser.close();
+                browser.disconnect();
 
                 console.log('Verification successful, session cleaned up');
 
@@ -299,7 +383,7 @@ export async function POST(req: Request) {
 
             } catch (e: any) {
                 if (page) await page.close().catch(() => { });
-                if (browser) await browser.close().catch(() => { });
+                if (browser) browser.disconnect();
                 await SessionManager.delete(sessionToken);
                 console.error('Verify Step Error:', e);
                 return NextResponse.json({

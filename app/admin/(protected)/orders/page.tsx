@@ -253,6 +253,9 @@ export default function OrdersPage() {
 
     // --- AUTO VERIFICATION ---
     const handleAutoVerify = async (orderId: string) => {
+        const order = orders.find(o => o.id === orderId);
+        if (!order) return;
+
         setVerificationState({
             isOpen: true,
             orderId,
@@ -267,7 +270,11 @@ export default function OrdersPage() {
             const res = await fetch('/api/admin/verify-birth', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'FETCH_CAPTCHA' })
+                body: JSON.stringify({
+                    action: 'FETCH_CAPTCHA',
+                    nid: order.nid,
+                    dob: formatDateISO(order.dob)
+                })
             });
 
             if (res.ok) {
