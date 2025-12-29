@@ -277,7 +277,7 @@ export default function OrdersPage() {
                         ...prev,
                         captchaImage: data.captchaImage,
                         cookies: data.cookies,
-                        sessionId: data.sessionId, // Store Session ID
+                        sessionId: data.sessionToken, // Store Session Token
                         status: 'IDLE' // Ready for input
                     }));
                 } else {
@@ -311,7 +311,7 @@ export default function OrdersPage() {
                     dob: formatDateISO(order.dob),
                     captchaAnswer: answer,
                     cookies: cookies,
-                    sessionId: sessionId // Send Session ID back to server
+                    sessionToken: sessionId // Send Session Token back to server
                 })
             });
 

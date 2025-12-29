@@ -3,10 +3,41 @@ import puppeteer from 'puppeteer-core';
 import chromium from '@sparticuz/chromium-min';
 import fs from 'fs';
 import path from 'path';
+import { randomBytes } from 'crypto';
 
 // Declare global types
 declare global {
     var __BROWSER_WS__: string | undefined;
+}
+
+// Session storage
+interface VerificationSession {
+    wsEndpoint: string;
+    pageUrl: string;
+    timestamp: number;
+}
+
+const activeSessions = new Map<string, VerificationSession>();
+
+// Cleanup expired sessions (older than 5 minutes)
+function cleanupExpiredSessions() {
+    const now = Date.now();
+    const FIVE_MINUTES = 5 * 60 * 1000;
+
+    for (const [token, session] of activeSessions.entries()) {
+        if (now - session.timestamp > FIVE_MINUTES) {
+            console.log('Removing expired session:', token);
+            activeSessions.delete(token);
+        }
+    }
+}
+
+// Run cleanup every minute
+setInterval(cleanupExpiredSessions, 60 * 1000);
+
+// Generate session token
+function generateSessionToken(): string {
+    return randomBytes(32).toString('hex');
 }
 
 // Session File Path
@@ -85,7 +116,7 @@ async function getBrowser() {
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        const { action, nid, dob, captchaAnswer } = body;
+        const { action, nid, dob, captchaAnswer, sessionToken } = body;
 
         // --- STEP 1: FETCH CAPTCHA ---
         if (action === 'FETCH_CAPTCHA') {
@@ -94,32 +125,26 @@ export async function POST(req: Request) {
 
             try {
                 browser = await getBrowser();
-
-                // ALWAYS create a fresh page for each verification attempt
                 page = await browser.newPage();
 
-                // Navigate to portal
                 await page.goto('https://everify.bdris.gov.bd/', {
                     waitUntil: 'networkidle0',
                     timeout: 30000
                 });
 
-                // Wait for captcha with multiple strategies
+                // Wait for captcha with retries
                 let captchaBase64;
                 let retries = 3;
 
                 while (retries > 0) {
                     try {
-                        // Wait for element to exist AND be visible
                         await page.waitForSelector('#CaptchaImage', {
                             visible: true,
                             timeout: 10000
                         });
 
-                        // Additional wait for rendering
                         await new Promise(r => setTimeout(r, 1000));
 
-                        // Verify element has dimensions
                         const hasSize = await page.evaluate(() => {
                             const img = document.querySelector('#CaptchaImage') as HTMLImageElement;
                             return img && img.offsetWidth > 0 && img.offsetHeight > 0;
@@ -133,7 +158,7 @@ export async function POST(req: Request) {
                         if (!captchaElement) throw new Error('Captcha element not found');
 
                         captchaBase64 = await captchaElement.screenshot({ encoding: 'base64' });
-                        break; // Success
+                        break;
 
                     } catch (e) {
                         retries--;
@@ -143,17 +168,25 @@ export async function POST(req: Request) {
                     }
                 }
 
-                // Mark this page for later use
-                await page.evaluate(() => {
-                    (window as any)._VERIFICATION_PAGE = Date.now();
+                // Generate session token and store session
+                const token = generateSessionToken();
+                const pageUrl = page.url();
+
+                activeSessions.set(token, {
+                    wsEndpoint: browser.wsEndpoint(),
+                    pageUrl: pageUrl,
+                    timestamp: Date.now()
                 });
 
-                // DON'T disconnect - keep the connection alive for VERIFY step
-                // browser.disconnect();
+                console.log('Created session:', token, 'Total sessions:', activeSessions.size);
+
+                // DON'T disconnect - keep browser alive
+                // DON'T close page - we need it for VERIFY
 
                 return NextResponse.json({
                     success: true,
                     captchaImage: `data:image/png;base64,${captchaBase64}`,
+                    sessionToken: token
                 });
 
             } catch (e: any) {
@@ -174,28 +207,53 @@ export async function POST(req: Request) {
 
         // --- STEP 2: VERIFY ---
         if (action === 'VERIFY') {
-            if (!captchaAnswer || !nid || !dob) {
+            if (!captchaAnswer || !nid || !dob || !sessionToken) {
                 return NextResponse.json({ error: 'Missing required data' }, { status: 400 });
+            }
+
+            // Look up session
+            const session = activeSessions.get(sessionToken);
+            if (!session) {
+                return NextResponse.json({
+                    error: 'Session expired or invalid. Please refresh and try again.'
+                }, { status: 400 });
+            }
+
+            // Check session age (5 minutes max)
+            const sessionAge = Date.now() - session.timestamp;
+            if (sessionAge > 5 * 60 * 1000) {
+                activeSessions.delete(sessionToken);
+                return NextResponse.json({
+                    error: 'Session expired. Please refresh and try again.'
+                }, { status: 400 });
             }
 
             let browser;
             let page;
 
             try {
-                browser = await getBrowser();
+                // Connect to the stored browser
+                browser = await puppeteer.connect({ browserWSEndpoint: session.wsEndpoint });
 
-                // Find the verification page with better fallback
+                if (!browser.isConnected()) {
+                    activeSessions.delete(sessionToken);
+                    return NextResponse.json({
+                        error: 'Browser connection lost. Please refresh and try again.'
+                    }, { status: 400 });
+                }
+
+                // Find the page by URL
                 const pages = await browser.pages();
-                console.log(`Total pages open: ${pages.length}`);
+                console.log(`Looking for page with URL: ${session.pageUrl}`);
+                console.log(`Total pages: ${pages.length}`);
 
-                // Strategy 1: Find by URL
                 for (const p of pages) {
                     try {
                         const url = p.url();
-                        console.log('Checking page URL:', url);
-                        if (url.includes('everify.bdris.gov.bd') || url.includes('bdris.gov.bd')) {
+                        console.log('Checking page:', url);
+                        if (url === session.pageUrl || url.includes('everify.bdris.gov.bd')) {
                             page = p;
-                            console.log('Found verification page by URL:', url);
+                            console.log('Found matching page!');
                             break;
                         }
                     } catch (e) {
@@ -203,29 +261,11 @@ export async function POST(req: Request) {
                     }
                 }
 
-                // Strategy 2: If not found by URL, use the most recent non-blank page
                 if (!page) {
-                    console.log('URL search failed, trying to find most recent page...');
-                    for (let i = pages.length - 1; i >= 0; i--) {
-                        try {
-                            const url = pages[i].url();
-                            // Skip blank pages and about:blank
-                            if (url && url !== 'about:blank' && !url.startsWith('chrome://')) {
-                                page = pages[i];
-                                console.log('Using most recent page:', url);
-                                break;
-                            }
-                        } catch (e) {
-                            console.log('Error checking page', i, ':', e);
-                        }
-                    }
-                }
-
-                if (!page) {
-                    console.error('No suitable page found. Total pages:', pages.length);
+                    activeSessions.delete(sessionToken);
                     browser.disconnect();
                     return NextResponse.json({
-                        error: 'Session expired. Please refresh and try again.'
+                        error: 'Verification page not found. Please refresh and try again.'
                     }, { status: 400 });
                 }
 
@@ -284,52 +324,27 @@ export async function POST(req: Request) {
                     throw new Error('Verification failed. Server response not recognized.');
                 }
 
-                // Wait for complete data loading
-                console.log('Waiting for data to load completely...');
-
-                // Wait for network to settle after form submission
+                // Wait for Bengali characters to appear (data loaded)
+                console.log('Waiting for Bengali text to load...');
                 try {
-                    await page.waitForNetworkIdle({ timeout: 15000, idleTime: 2000 });
-                    console.log('Network idle achieved');
+                    await page.waitForFunction(
+                        () => {
+                            const cells = Array.from(document.querySelectorAll('td'));
+                            // Check for Bengali Unicode characters
+                            const hasBengali = cells.some(cell =>
+                                /[\u0980-\u09FF]/.test(cell.innerText)
+                            );
+                            return hasBengali;
+                        },
+                        { timeout: 30000, polling: 2000 }
+                    );
+                    console.log('Bengali text detected - data loaded!');
                 } catch (e) {
-                    console.log('Network idle timeout');
+                    console.warn('Bengali text detection timeout - proceeding anyway');
                 }
 
-                // Additional wait for data to populate
-                await new Promise(r => setTimeout(r, 5000));
-                console.log('Waited 5 seconds for data population');
-
-                // Optional: Check if names loaded (but don't fail if they didn't)
-                const namesStatus = await page.evaluate(() => {
-                    const allCells = Array.from(document.querySelectorAll('td'));
-                    let personName = '';
-                    let fatherName = '';
-
-                    for (let i = 0; i < allCells.length; i++) {
-                        const cell = allCells[i];
-                        const cellText = cell.innerText.trim();
-
-                        if (cellText.includes('REGISTERED PERSON NAME') || cellText.includes('Registered Person Name')) {
-                            const nextCell = allCells[i + 1];
-                            if (nextCell) personName = nextCell.innerText.trim();
-                        }
-
-                        if (cellText.includes("FATHER'S NAME") || cellText.includes("Father's Name")) {
-                            const nextCell = allCells[i + 1];
-                            if (nextCell) fatherName = nextCell.innerText.trim();
-                        }
-                    }
-
-                    return { personName, fatherName };
-                });
-
-                console.log('Names found:', namesStatus);
-                if (namesStatus.personName === 'WE' || namesStatus.fatherName === 'WE') {
-                    console.warn('WARNING: Names still showing as WE - data may be incomplete');
-                }
-
-                // Additional safety wait
-                await new Promise(r => setTimeout(r, 2000));
+                // Additional wait for rendering
+                await new Promise(r => setTimeout(r, 3000));
 
                 // Generate PDF
                 await page.emulateMediaType('screen');
@@ -371,9 +386,12 @@ export async function POST(req: Request) {
                 const pdfBytes = await pdfDoc.save();
                 const pdfBase64 = Buffer.from(pdfBytes).toString('base64');
 
-                // DON'T close page - keep it for potential retries
-                // Just disconnect the Node wrapper
+                // Cleanup: Remove session and close page
+                activeSessions.delete(sessionToken);
+                await page.close();
                 browser.disconnect();
+
+                console.log('Verification successful, session cleaned up');
 
                 return NextResponse.json({
                     success: true,
@@ -383,6 +401,7 @@ export async function POST(req: Request) {
             } catch (e: any) {
                 if (page) await page.close().catch(() => { });
                 if (browser) browser.disconnect();
+                activeSessions.delete(sessionToken);
                 console.error('Verify Step Error:', e);
                 return NextResponse.json({
                     error: e.message || 'Verification Failed'
